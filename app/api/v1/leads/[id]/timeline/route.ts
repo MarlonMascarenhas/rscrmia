@@ -37,6 +37,7 @@ import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/wrappers";
 import { loadAuthUser } from "@/lib/auth/server";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 import {
   TIMELINE_COLS,
@@ -81,11 +82,21 @@ export async function GET(req: NextRequest, ctx: RouteCtx): Promise<Response> {
   // O lead vem pela RLS do caller — é ele que prova a org, nunca o body.
   const { data: lead, error: leadErr } = await supabase
     .from("crm_leads")
-    .select("id, contact_id")
+    // `organization_id` entra no select para o gate de cobrança abaixo — é o
+    // mesmo princípio que o comentário acima já declara: o lead prova a org.
+    .select("id, contact_id, organization_id")
     .eq("id", leadId)
     .maybeSingle();
   if (leadErr) return fail("internal_error", leadErr.message, 500, { requestId });
   if (!lead) return fail("not_found", t("Negócio não encontrado."), 404, { requestId });
+
+  // Gate de COBRANÇA (migration 0393) — o terceiro dos três pontos, provado por
+  // `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  const semAcesso = await exigirAcessoLiberado(
+    (lead as { organization_id: string }).organization_id,
+    { requestId, idioma: authUser?.idioma },
+  );
+  if (semAcesso) return semAcesso;
 
   const contactId = (lead as { contact_id: string | null }).contact_id;
 

@@ -1,3 +1,4 @@
+import { exigirFolgaNoLimite, exigirCapacidade } from "@/lib/planos/guarda";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET  /api/v1/settings/api-tokens — list tokens for the active org (no plaintext).
@@ -48,6 +49,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const { user: authUser, org: activeOrg } = authz;
 
+  // Plano (migration 0393): esta capacidade só existe se o plano contratado a inclui.
+  const semCapacidade = await exigirCapacidade(activeOrg.orgId, "mcp_e_api", { requestId, idioma: authUser.idioma });
+  if (semCapacidade) return semCapacidade;
+  // Plano (migration 0393): teto de tokens de API. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(activeOrg.orgId, "tokens_de_api", { requestId, idioma: authUser.idioma });
+  if (foraDoPlano) return foraDoPlano;
   let input;
   try {
     input = await validateRequest(createApiTokenSchema, req);

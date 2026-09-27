@@ -121,6 +121,18 @@ const PLATAFORMA: readonly { caminho: string; motivo: string }[] = [
  */
 const SEM_FILTRO_LIBERADO: readonly { arquivo: string; tabela: string; motivo: string }[] = [
   {
+    arquivo: "app/admin/(protected)/planos/page.tsx",
+    tabela: "assinaturas",
+    motivo:
+      "A pergunta É cross-tenant: 'quantas organizações estão em cada plano', para a confirmação de " +
+      "ARQUIVAR dizer 'N organizações continuam com ele'. O `select` traz apenas `plano_id` — nenhum " +
+      "nome, nenhum id de organização, nenhum dado de cliente —, e a tela mostra a CONTAGEM, não a lista. " +
+      "Filtrar por uma organização responderia outra pergunta. O gate é de papel, como nas irmãs de " +
+      "`/admin`: `is_platform_admin` no topo da página e `notFound()` para o resto. " +
+      "⚠️ A dispensa VENCE se a tela passar a mostrar QUAIS organizações: aí o `select` carrega " +
+      "`organization_id` e volta a ser leitura de dado de inquilino.",
+  },
+  {
     arquivo: "app/admin/(protected)/extensoes/page.tsx",
     tabela: "organization_extensions",
     motivo:

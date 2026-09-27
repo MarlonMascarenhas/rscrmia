@@ -90,6 +90,29 @@ const PROVA_PROPRIA: readonly Excecao[] = [
   { tabela: "event_service_origins", razao: "tests/invariants/service-event-origin.test.ts — recibo server-only, authenticated sem leitura/escrita, RPC rejeita tenant B real" },
   { tabela: "platform_support_sessions", razao: "tests/invariants/suporte-temporario.test.ts — grant por sessão, readonly e nenhuma escrita direta authenticated" },
   {
+    tabela: "cobranca_checkouts",
+    razao:
+      "tests/invariants/planos-isolamento.test.ts — fila do servidor: nenhum privilégio para anon/authenticated/PUBLIC " +
+      "(sonda de grant sob o default ACL do Supabase) e nem o MEMBRO da própria organização lê, por JWT real. " +
+      "É o mapa 'sessão de pagamento → organização', escrito só pelo service_role.",
+  },
+  {
+    tabela: "cobranca_eventos",
+    razao:
+      "tests/invariants/planos-isolamento.test.ts — recibo do webhook: sem privilégio para anon/authenticated/PUBLIC, " +
+      "leitura recusada ao membro por JWT real, e a idempotência (23505) e o CHECK do recibo provados no Postgres. " +
+      "organization_id é ANULÁVEL de propósito (evento sem dono é registrado, não perdido).",
+  },
+  {
+    tabela: "assinaturas",
+    razao:
+      "tests/invariants/planos-isolamento.test.ts — dois tenants reais por JWT: o membro da A vê exatamente 1 " +
+      "assinatura (a sua) e ZERO da B, com contagem SEM filtro de organização; anon é recusado; e authenticated " +
+      "não escreve nem cria (senão a organização se liberaria de graça pelo PostgREST), tendo só SELECT. Fica " +
+      "fora de TABLES de propósito: o usuário semeado em rls-isolation.test.ts é `agent` e a prova aqui precisa " +
+      "de escrita negada em três verbos mais a sonda de grant sob o default ACL do Supabase (TRUNCATE incluso).",
+  },
+  {
     tabela: "webhook_lead_captures",
     razao:
       "tests/invariants/historico-de-captacao-rls.test.ts prova isolamento " +

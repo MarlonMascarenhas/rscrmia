@@ -25,6 +25,7 @@ import {
 } from "@/lib/leads/next-action";
 import type { LeadCandidate } from "@/lib/leads/active-lead";
 import { anexarDadosDoContato, type LinhaDoContatoNoQuadro } from "@/lib/kanban/dados-do-contato";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 import type { BoardData, Pipeline, Stage } from "@/lib/kanban/types";
 import type { Lead } from "@/lib/types/leads";
@@ -459,6 +460,15 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
   if (stagesErr) return fail("internal_error", stagesErr.message, 500, { requestId });
   if (leadsErr) return fail("internal_error", leadsErr.message, 500, { requestId });
   if (!pipeline) return fail("resource_not_found", t("Pipeline não encontrado."), 404, { requestId });
+
+  // Gate de COBRANÇA (migration 0393). A organização vem do funil já validado
+  // pela RLS — exatamente a fonte que o comentário do topo deste arquivo declara
+  // ("vem do pipeline já validado pela RLS"), nunca o corpo do pedido.
+  const semAcesso = await exigirAcessoLiberado(
+    (pipeline as Pipeline).organization_id,
+    { requestId, idioma: authUser?.idioma },
+  );
+  if (semAcesso) return semAcesso;
 
   const leadsWithOwner = await withOwnerAgents(
     supabase,

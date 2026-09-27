@@ -26,6 +26,7 @@
  * alternativa (status por seção) triplicaria os estados no componente, e a
  * doença que esta rota cura é exatamente estados distintos colapsados num só.
  */
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { prospectEnrichmentSchema } from "@/lib/prospecting/schema";
 import { randomUUID } from "node:crypto";
@@ -92,6 +93,16 @@ export async function GET(
     .select("organization_id, is_anonymized").eq("id", contactId).maybeSingle();
   if (scopeError) return fail("internal_error", scopeError.message, 500, { requestId });
   if (!contactScope) return fail("not_found", "Contato não encontrado.", 404, { requestId });
+
+  // Gate de COBRANÇA (migration 0393). A organização vem do CONTATO já
+  // autorizado pela RLS acima — fonte confiável, nunca o corpo do pedido, como
+  // manda o CLAUDE.md. Aqui a guarda entra DEPOIS do escopo justamente por isso:
+  // sem o contato resolvido não há organização de quem cobrar.
+  const semAcesso = await exigirAcessoLiberado(
+    contactScope.organization_id,
+    { requestId },
+  );
+  if (semAcesso) return semAcesso;
   // Candidates are worker-only. Authorize the contact through RLS first, then
   // scope this read to that exact contact and organization. Never expose raw data.
   const enrichment = await (async () => {

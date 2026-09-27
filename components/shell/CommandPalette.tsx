@@ -61,6 +61,7 @@ function Resultados({ aoEscolher }: { aoEscolher: () => void }) {
         activeOrg?.role ?? null,
         activeOrg?.interface_settings,
         activeOrg?.modulos_ligados ?? [],
+        activeOrg?.destinos_ocultos_pelo_plano ?? [],
       ),
     [
       user.is_platform_admin,
@@ -68,6 +69,7 @@ function Resultados({ aoEscolher }: { aoEscolher: () => void }) {
       activeOrg?.role,
       activeOrg?.interface_settings,
       activeOrg?.modulos_ligados,
+      activeOrg?.destinos_ocultos_pelo_plano,
     ],
   );
 

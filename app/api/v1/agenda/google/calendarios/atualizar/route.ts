@@ -9,7 +9,7 @@ import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 export async function POST(req: Request) {
   const denied = await requireSupportWrite();if (denied) return denied;
-  const requestId = randomUUID();const auth = await requireRole("agent", { requestId, resource: "agenda" });if (!auth.ok) return auth.response;
+  const requestId = randomUUID();const auth = await requireRole("agent", { capacidade: "agenda_google", requestId, resource: "agenda" });if (!auth.ok) return auth.response;
   const parsed = z.object({ connection_id: z.uuid() }).strict().safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("validation_failed", "Confira a conexão escolhida.", 422, { requestId });
   const { data, error } = await (await createClient()).from("calendar_connections").select("id").eq("organization_id", auth.org.orgId).eq("user_id", auth.user.id).eq("id", parsed.data.connection_id).maybeSingle();

@@ -9,6 +9,7 @@ import { type NextRequest } from "next/server";
 
 import { ok, fail } from "@/lib/api/wrappers";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 import { ehProvedorSuportado } from "@/lib/ai/pontos/provedores";
 
@@ -39,6 +40,19 @@ export async function GET(
   if (!activeOrg) {
     return fail("forbidden_tenant", "Sem organização ativa.", 403, { requestId });
   }
+
+  // Gate de COBRANÇA (migration 0393). Esta rota resolve a organização por
+  // `resolveActiveOrg` e não passa por `requireRole`, então a guarda é explícita —
+  // é o terceiro dos três pontos do gate. Quem prova que nenhuma rota ficou fora
+  // dos três é `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  //
+  // LER é o produto: deixar a leitura aberta entregaria o essencial de graça a
+  // quem venceu.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: authUser?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const supabase = await createClient();
   const { data, error } = await supabase

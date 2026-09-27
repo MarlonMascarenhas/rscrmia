@@ -23,6 +23,7 @@ import {
   type ContatoParaDeduplicar,
 } from "@/lib/contacts/duplicados";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,19 @@ export async function GET(): Promise<Response> {
     const t = (texto: string) => traduzir(texto, user.idioma);
     return fail("forbidden_tenant", t("Organização ativa não resolvida."), 403, { requestId });
   }
+
+  // Gate de COBRANÇA (migration 0393). Esta rota resolve a organização por
+  // `resolveActiveOrg` e não passa por `requireRole`, então a guarda é explícita —
+  // é o terceiro dos três pontos do gate. Quem prova que nenhuma rota ficou fora
+  // dos três é `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  //
+  // LER é o produto: deixar a leitura aberta entregaria o essencial de graça a
+  // quem venceu.
+  const semAcesso = await exigirAcessoLiberado(org.orgId, {
+    requestId,
+    idioma: user?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const supabase = await createClient();
   const { data, error } = await supabase

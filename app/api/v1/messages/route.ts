@@ -1,3 +1,4 @@
+import { exigirFolgaNoLimite } from "@/lib/planos/guarda";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * POST /api/v1/messages — envia mensagem outbound (handler em ./_handler.ts).
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
   if (!authz.ok) return authz.response;
   const { supabase, organizationId, actor, idioma } = authz;
+  // Plano (migration 0393): teto de mensagens enviadas no mês. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(organizationId, "mensagens_por_mes", { requestId, idioma: idioma });
+  if (foraDoPlano) return foraDoPlano;
 
   // Por token, esta rota é a mesma porta de escrita do MCP — e leva o mesmo
   // teto por token (`lib/mcp/rate-limit.ts`). Pela sessão do navegador não há

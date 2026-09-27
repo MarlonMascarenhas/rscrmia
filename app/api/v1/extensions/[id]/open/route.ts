@@ -20,7 +20,7 @@ export async function POST(
   try {
     const denied = await requireSupportWrite();
     if (denied) return denied;
-    const authz = await requireRole("viewer", { resource: "organization_extensions" });
+    const authz = await requireRole("viewer", { capacidade: "extensoes", resource: "organization_extensions" });
     if (!authz.ok) return authz.response;
     requireExtensionOrganization(request, authz.org.orgId);
     const input = openRequestSchema.parse(await extensionRequestJson(request));

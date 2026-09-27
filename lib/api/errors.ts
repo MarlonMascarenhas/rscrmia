@@ -106,6 +106,45 @@ export const ApiErrorCodes = {
   // 429
   rate_limited: "rate_limited",
 
+  // ─── PLANOS E ASSINATURA (migration 0393) ───
+  //
+  // Declarados aqui pelo mesmo motivo dos da Agenda: `fail()` aceita
+  // `(string & {})`, então um código só é contrato se estiver nesta lista.
+  //
+  // São QUATRO e não um só porque cada um pede uma ação diferente de quem lê, e
+  // colapsá-los mandaria parte das pessoas procurar o botão errado — o mesmo
+  // argumento dos três códigos de voz, logo abaixo.
+  //
+  // **402 e não 403**: `forbidden*` significa "seu papel não permite", e já tem
+  // três variantes aqui. Quem recebe 402 tem uma ação que nenhum 403 sugere —
+  // pagar. Nenhum outro status do arquivo carrega essa informação.
+  /** 402: o acesso venceu (teste acabou, assinatura vencida ou cancelada). */
+  assinatura_vencida: "assinatura_vencida",
+  /** 402: pagamento falhou E a carência acabou. Distinto do acima porque a ação
+   *  é atualizar o meio de pagamento, não escolher um plano. */
+  assinatura_inadimplente: "assinatura_inadimplente",
+  /** 422: o recurso existe, mas o plano contratado não o inclui. 422 e não 402
+   *  porque não há nada vencido — é o mesmo eixo de `agenda_tipo_desativado` e
+   *  `external_db_desativada`: desligado pela contratação da própria empresa. */
+  plano_nao_inclui: "plano_nao_inclui",
+  /** 409: teto numérico batido. Mesmo status e mesmo espírito de
+   *  `extension_active_limit` — conflito com o estado atual, e a ação é remover
+   *  um ou trocar de plano. */
+  plano_limite_atingido: "plano_limite_atingido",
+  /** 503: a leitura do plano não voltou. NUNCA `plano_nao_inclui`, que AFIRMARIA
+   *  uma causa que ninguém mediu e mandaria o admin procurar um botão de
+   *  upgrade quando o problema é o banco. É `voice_estado_indeterminado`
+   *  aplicado a este eixo, e a razão inteira está em lib/voice/guarda.ts:96-107. */
+  plano_estado_indeterminado: "plano_estado_indeterminado",
+  /** 503: o checkout foi pedido mas a instalação não tem Stripe configurado (chave e
+   *  segredo do webhook). Dependência de INSTALAÇÃO — nenhum clique do cliente
+   *  resolve, e a frase manda falar com quem administra o servidor. */
+  cobranca_indisponivel_na_instalacao: "cobranca_indisponivel_na_instalacao",
+  /** 409: pediu para cancelar/gerenciar no provedor uma assinatura que não está lá —
+   *  acesso liberado à mão (Pix, cortesia) não tem assinatura no Stripe. A ação é
+   *  falar com quem administra a instalação, não tentar de novo. */
+  cobranca_sem_assinatura_no_provedor: "cobranca_sem_assinatura_no_provedor",
+
   // ─── ANÚNCIOS, eixo de LEITURA (0214) ───
   //
   // Declarados aqui pelo mesmo motivo que os da Agenda: `fail()` aceita

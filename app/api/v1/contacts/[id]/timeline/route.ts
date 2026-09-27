@@ -23,6 +23,7 @@ import { type NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/wrappers";
 import { loadAuthUser } from "@/lib/auth/server";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 import type { TimelineItem } from "@/lib/types/contacts";
 import {
@@ -70,11 +71,21 @@ export async function GET(
   // Verify contact accessible (RLS will filter); 404 if not.
   const { data: contactRow, error: cErr } = await supabase
     .from("contacts")
-    .select("id")
+    // `organization_id` entra no select para o gate de cobrança abaixo: a RLS já
+    // provou o acesso, e é dela que sai a organização — nunca do corpo do pedido.
+    .select("id, organization_id")
     .eq("id", contactId)
     .maybeSingle();
   if (cErr) return fail("internal_error", cErr.message, 500, { requestId });
   if (!contactRow) return fail("not_found", t("Contato não encontrado."), 404, { requestId });
+
+  // Gate de COBRANÇA (migration 0393) — o terceiro dos três pontos, provado por
+  // `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  const semAcesso = await exigirAcessoLiberado(
+    (contactRow as { organization_id: string }).organization_id,
+    { requestId, idioma: authUser?.idioma },
+  );
+  if (semAcesso) return semAcesso;
 
   // Resolve owned lead ids first.
   const { data: leadRows, error: lErr } = await supabase

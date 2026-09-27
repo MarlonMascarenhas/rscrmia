@@ -40,6 +40,11 @@ export const PORTAS_ESSENCIAIS = [
   "/app/settings/security",
   "/app/team",
   "/app/settings/tenant",
+  // A COBRANÇA (migration 0393). Sem ela nas essenciais, uma organização que a
+  // escondesse se trancaria sem poder pagar: a porta que resolve desapareceria
+  // junto com as outras — a mesma razão de `/app/settings/tenant` acima, e pior,
+  // porque aqui o que se perde é o cliente.
+  "/app/settings/billing",
 ] as const;
 
 /**
@@ -48,7 +53,12 @@ export const PORTAS_ESSENCIAIS = [
  * estar aqui impede a organização de ESCONDER, nunca concede acesso a quem o
  * papel não dá.
  */
-const ESSENCIAIS_DE_ADMIN: readonly string[] = ["/app/team", "/app/settings/tenant"];
+const ESSENCIAIS_DE_ADMIN: readonly string[] = [
+  "/app/team",
+  "/app/settings/tenant",
+  // `minRole: "admin"` no catálogo: quem contrata é quem administra.
+  "/app/settings/billing",
+];
 
 export function essencial(d: NavMetadata, role: Role | null, platform = false): boolean {
   // Por PERTENCIMENTO à lista, nunca por índice: a versão anterior enumerava
@@ -73,9 +83,14 @@ export function permitidos(
   platform: boolean,
   role: Role | null,
   modulos?: readonly ModuloOpcional[],
+  /** Hrefs que o PLANO da organização esconde. Ausente = nada escondido. */
+  ocultos?: readonly string[],
 ): NavMetadata[] {
   return (NAV_CATALOG as readonly NavMetadata[]).filter(
-    (d) => canSee(d, platform, role) && (!modulos || !d.modulo || modulos.includes(d.modulo)),
+    (d) =>
+      canSee(d, platform, role) &&
+      (!modulos || !d.modulo || modulos.includes(d.modulo)) &&
+      !ocultos?.includes(d.href),
   );
 }
 /** Leitura tolera versões antigas/removidas sem lançar no layout. */
@@ -104,9 +119,10 @@ export function destinosDaInterface(
   platform: boolean,
   role: Role | null,
   modulos?: readonly ModuloOpcional[],
+  ocultos?: readonly string[],
 ): NavMetadata[] {
   const { settings } = lerInterface(raw);
-  const allowed = permitidos(platform, role, modulos);
+  const allowed = permitidos(platform, role, modulos, ocultos);
   const chosen =
     settings.destinos ?? (settings.preset === "simplificada" ? SIMPLIFICADA : undefined);
   return allowed.filter(

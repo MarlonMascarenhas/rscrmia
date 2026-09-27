@@ -10,7 +10,7 @@ import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 export async function GET() {
   const requestId = randomUUID();
-  const auth = await requireRole("agent", { requestId, resource: "agenda" });
+  const auth = await requireRole("agent", { capacidade: "agenda_google", requestId, resource: "agenda" });
   if (!auth.ok) return auth.response;
   const db = await createClient();
   const org = auth.org.orgId;
@@ -76,7 +76,7 @@ export async function PATCH(req: Request) {
   const denied = await requireSupportWrite();
   if (denied) return denied;
   const requestId = randomUUID();
-  const auth = await requireRole("agent", { requestId, resource: "agenda" });
+  const auth = await requireRole("agent", { capacidade: "agenda_google", requestId, resource: "agenda" });
   if (!auth.ok) return auth.response;
   const parsed = selectionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success)

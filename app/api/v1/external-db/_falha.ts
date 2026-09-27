@@ -42,6 +42,20 @@ export function respostaDeAcesso(
   switch (motivo) {
     case "modulo_desligado":
       return fail("not_found", "Not found.", 404, { requestId });
+    case "plano_nao_inclui":
+      return fail(
+        "plano_nao_inclui",
+        t("A integração com banco de dados externo não está incluída no plano atual."),
+        422,
+        { requestId },
+      );
+    case "plano_indeterminado":
+      return fail(
+        "plano_estado_indeterminado",
+        t("Não foi possível confirmar o seu plano agora. Tente de novo em instantes."),
+        503,
+        { requestId },
+      );
     case "nao_encontrada":
       return fail("not_found", t("Conexão não encontrada."), 404, { requestId });
     case "desativada":

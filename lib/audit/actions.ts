@@ -511,6 +511,32 @@ export const AUDIT_ACTIONS = [
   "ai.budget_limit_changed",
   "ai.budget_enforcement_armed",
   "ai.budget_enforcement_disarmed",
+  // ─── PLANOS E COBRANÇA (migration 0393) ───
+  //
+  // `plano.*` é da INSTALAÇÃO (organizationId nulo): quem edita o catálogo é quem
+  // administra o servidor, e não há organização a que a linha pertença.
+  //
+  // `assinatura.liberada_manualmente` é a porta de escape do dono — Pix por fora,
+  // cortesia, webhook que falhou. É a ação mais sensível deste eixo, porque
+  // contorna a cobrança, e o metadata carrega o prazo ANTES e DEPOIS mais o
+  // motivo escrito: sem os três, seis meses depois ninguém sabe explicar por que
+  // aquela organização nunca pagou.
+  "plano.created",
+  "plano.updated",
+  "plano.archived",
+  // Ligar, desligar ou ajustar a cobrança da instalação. O metadata traz `antes` e
+  // `depois` inteiros: a pergunta que se faz meses depois é "quem ligou a cobrança, e
+  // o que valia antes" — e a coluna guarda só o valor de agora.
+  "cobranca.configuracao_alterada",
+  "assinatura.liberada_manualmente",
+  // Efeito de um evento do PROVEDOR de pagamento sobre a assinatura (`aplicado`) ou o
+  // vínculo do checkout (`vinculado`). `actorUserId` é nulo: quem agiu foi o
+  // provedor, e o metadata carrega o id do evento para cruzar com o painel dele.
+  // Evento ignorado ou sem organização NÃO audita — não fez efeito.
+  "assinatura.evento_do_provedor",
+  // Ações do CLIENTE sobre a própria assinatura, pela tela de cobrança.
+  "assinatura.checkout_iniciado",
+  "assinatura.cancelamento_pedido",
   "contact.deleted",
 
   // A poda do histórico (issue #261). UMA linha por rodada que de fato

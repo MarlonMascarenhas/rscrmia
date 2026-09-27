@@ -19,6 +19,8 @@ import type { Actor } from "@/lib/api/handlers/types";
 import { registrarFalhaDeToken, tokenFailureLimited } from "@/lib/auth/rate-limit";
 import type { Role } from "@/lib/auth/types";
 import { ROLE_RANK } from "@/lib/auth/types";
+import { negacaoDeAcesso, negacaoDeCapacidade } from "@/lib/planos/guarda";
+import { estadoDeCobrancaDoPedido } from "@/lib/planos/pedido";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface McpAuthResult {
@@ -213,6 +215,36 @@ export async function validateBearerToken(
 
   const role = scopesRole(resolved.scopes);
   const actor = deriveActor(resolved.scopes, resolved.id);
+
+  // Gate de COBRANÇA (migration 0393) — o SEGUNDO dos três pontos.
+  //
+  // Sem esta verificação o produto ficaria trancado na tela e ABERTO no Bearer:
+  // uma organização vencida seguiria enviando mensagem por
+  // `POST /api/v1/messages` (que resolve por `resolveAuthDual` → aqui, e nunca
+  // por `requireRole`) e operando por `/api/mcp`. É o furo mais caro possível,
+  // porque a tela diria "vencido" enquanto o integrador trabalha.
+  //
+  // Lança em vez de devolver: este caminho tem protocolo próprio (JSON-RPC), e a
+  // tabela código→frase mora em `negacaoDeAcesso` para não existir duas vezes.
+  // `-32005` é novo nesta lista, ao lado de -32001 (401), -32004 (429).
+  //
+  // A organização vem do TOKEN resolvido no servidor, nunca do corpo — é a
+  // mesma fonte confiável que o resto do arquivo usa.
+  const estadoDoPlano = await estadoDeCobrancaDoPedido(resolved.organizationId);
+  const negada = negacaoDeAcesso(estadoDoPlano, resolved.organizationId, (texto) => texto);
+  if (negada) {
+    throw new McpAuthError(-32005, negada.status, negada.mensagem);
+  }
+
+  // A capacidade `mcp_e_api`: acesso por token de INTEGRAÇÃO é o que o plano vende.
+  // O token do agente de IA do próprio produto (`actor:ai_agent`) fica de fora — é o
+  // motor da casa chamando as ferramentas dela, não um integrador, e cortá-lo por
+  // plano pararia o agente de responder cliente sem que ninguém tivesse "usado a API".
+  if (actor.type === "api_token") {
+    const semCapacidade = negacaoDeCapacidade(estadoDoPlano, "mcp_e_api", (texto) => texto);
+    // `-32006`: novo, ao lado de -32005 (assinatura). 422 e 503 herdam o status da negação.
+    if (semCapacidade) throw new McpAuthError(-32006, semCapacidade.status, semCapacidade.mensagem);
+  }
 
   return {
     organizationId: resolved.organizationId,

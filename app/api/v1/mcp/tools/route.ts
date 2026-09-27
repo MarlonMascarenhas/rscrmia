@@ -19,6 +19,7 @@ import { z } from "zod";
 
 import { ok, fail } from "@/lib/api/wrappers";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { allTools } from "@/lib/mcp/tools";
 import { TOOL_CATALOG, deModuloDesligado } from "@/lib/mcp/tools/catalog";
 import { modulosLigados } from "@/lib/instalacao/modulos";
@@ -33,6 +34,16 @@ export async function GET(_req: NextRequest): Promise<Response> {
   if (!authUser) return fail("unauthenticated", "Auth required.", 401, { requestId });
   const activeOrg = await resolveActiveOrg(authUser);
   if (!activeOrg) return fail("forbidden_tenant", "Sem organização ativa.", 403, { requestId });
+
+  // Gate de COBRANÇA (migration 0393). Esta rota LISTA as ferramentas que o
+  // agente pode usar, e é o espelho pela sessão do que `lib/mcp/auth.ts` já
+  // gateia pelo Bearer — sem ela, o catálogo continuaria sendo servido a quem
+  // venceu, e a tela de configuração do agente diria que tudo funciona.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: authUser?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   let servidas;
   try {

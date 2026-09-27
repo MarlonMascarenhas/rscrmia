@@ -229,6 +229,29 @@ export const CATALOGO_DA_INSTALACAO: readonly ChaveDaInstalacao[] = [
       "É uma chave de assinatura, não uma configuração: trocá-la invalida a conferência dos documentos já assinados. Fica no arquivo de instalação.",
   },
 
+  // ── COBRANÇA (migration 0393) ─────────────────────────────────────────────
+  // As duas chaves do Stripe moram no cofre, cifradas, e são lidas por
+  // `valorDaInstalacao` no instante do uso (`lib/planos/stripe/cliente.ts`): trocar
+  // a chave pela tela vale para o app E para o worker, sem reiniciar nada.
+  {
+    chave: "STRIPE_SECRET_KEY",
+    rotulo: "Chave secreta do Stripe",
+    explicacao:
+      "Permite ao sistema criar cobranças e assinaturas na sua conta do Stripe. Comece por uma chave de TESTE (sk_test_…) e troque pela de produção quando for vender de verdade.",
+    grupo: "integracao",
+    natureza: "segredo",
+    controle: "edita",
+  },
+  {
+    chave: "STRIPE_WEBHOOK_SECRET",
+    rotulo: "Segredo do webhook do Stripe",
+    explicacao:
+      "É o que prova que um aviso de pagamento veio mesmo do Stripe. Sem ele o sistema recusa todo aviso — e nenhum pagamento libera acesso sozinho.",
+    grupo: "integracao",
+    natureza: "segredo",
+    controle: "edita",
+  },
+
   // ── DIAGNÓSTICO: lida no boot de outro processo ───────────────────────────
   {
     chave: "AGENT_DISPATCH_CONSUMER",

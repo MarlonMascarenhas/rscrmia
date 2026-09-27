@@ -9,6 +9,7 @@
  * Paginação: keyset sobre (created_at DESC, id DESC), o mesmo formato de
  * `lead-captures`.
  */
+import { exigirFolgaNoLimite, exigirCapacidade } from "@/lib/planos/guarda";
 import { randomUUID } from "node:crypto";
 
 import type { NextRequest } from "next/server";
@@ -95,6 +96,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const { user, org } = authz;
 
+  // Plano (migration 0393): esta capacidade só existe se o plano contratado a inclui.
+  const semCapacidade = await exigirCapacidade(org.orgId, "campanhas", { requestId, idioma: user.idioma });
+  if (semCapacidade) return semCapacidade;
+  // Plano (migration 0393): teto de campanhas no mês. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(org.orgId, "campanhas_por_mes", { requestId, idioma: user.idioma });
+  if (foraDoPlano) return foraDoPlano;
   const parsed = criarCampanhaSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return fail("validation_failed", t("Dados inválidos."), 422, {

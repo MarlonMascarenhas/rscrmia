@@ -17,6 +17,8 @@ interface NavHubProps {
   interfaceSettings?: InterfaceSettings;
   /** Módulos opcionais ligados na instalação. Ausente = o hub não filtra por módulo. */
   modulosLigados?: readonly ModuloOpcional[];
+  /** Portas que o PLANO da organização esconde. Apresentação, nunca gate. */
+  ocultosPeloPlano?: readonly string[];
   group: NavGroupId;
   isPlatformAdmin: boolean;
   role: Role | null;
@@ -73,11 +75,12 @@ export function NavHub({
   subtitle,
   interfaceSettings,
   modulosLigados,
+  ocultosPeloPlano,
   locale = IDIOMA_PADRAO,
   extensionGuides = [],
   extensionsUnavailable = false,
 }: NavHubProps) {
-  const secoes = hubSections(group, isPlatformAdmin, role, interfaceSettings, modulosLigados);
+  const secoes = hubSections(group, isPlatformAdmin, role, interfaceSettings, modulosLigados, ocultosPeloPlano);
 
   return (
     <div className="flex h-full flex-col gap-8 p-6">

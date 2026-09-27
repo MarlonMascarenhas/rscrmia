@@ -17,6 +17,7 @@ import { type NextRequest } from "next/server";
 
 import { ok, fail } from "@/lib/api/wrappers";
 import { resolverHierarquiaDoContato } from "@/lib/plataformas-de-anuncio/hierarquia-do-contato";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,6 +49,14 @@ export async function GET(
     .maybeSingle();
   if (erroDoContato) return fail("internal_error", erroDoContato.message, 500, { requestId });
   if (!contato) return fail("not_found", "Contato não encontrado.", 404, { requestId });
+
+  // Gate de COBRANÇA (migration 0393). A organização vem do contato autorizado
+  // pela RLS acima — fonte confiável, nunca o corpo do pedido.
+  const semAcesso = await exigirAcessoLiberado(
+    contato.organization_id,
+    { requestId },
+  );
+  if (semAcesso) return semAcesso;
 
   // Contato anonimizado não ganha consulta nova à plataforma: a ficha dele
   // existe para provar o apagamento, não para enriquecer o cadastro.

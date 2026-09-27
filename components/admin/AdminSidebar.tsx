@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Lock,
   PuzzlePiece,
+  Receipt,
 } from "@/lib/ui/icons";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,15 @@ const NAV_ITEMS: NavItem[] = [
   // (`lib/navigation/catalogo.ts`), de propósito: são duas vistas do mesmo
   // assunto, e ícones diferentes fariam parecer dois assuntos.
   { href: "/admin/extensoes", label: "Extensões", icon: PuzzlePiece },
+  // A porta do CATÁLOGO DE PLANOS (migration 0393). É da INSTALAÇÃO — `planos`
+  // não tem `organization_id` — e /admin tem navegação própria, então NÃO entra
+  // em `lib/navigation/`, que cobre só `app/app/**`. Sem esta linha a tela
+  // existiria e só se chegaria nela digitando a URL.
+  //
+  // O rótulo é "Planos" e o ícone NÃO é o de "Billing" do menu da empresa, de
+  // propósito: lá o assunto é "o que EU pago", aqui é "o que EU vendo". Mesmo
+  // ícone faria parecer a mesma tela.
+  { href: "/admin/planos", label: "Planos", icon: Receipt },
 ];
 
 interface AdminSidebarProps {

@@ -15,10 +15,14 @@ import { resolverMarcaDaOrganizacao } from "@/lib/branding/organizacao";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { modulosLigados } from "@/lib/instalacao/modulos";
+import { destinosOcultosPeloPlano } from "@/lib/planos/capacidades";
+import { precisaAvisar } from "@/lib/planos/decisao";
+import { estadoDeCobrancaDoPedido } from "@/lib/planos/pedido";
 import {
   ImpersonateBanner,
 } from "@/components/app/ImpersonateBanner";
 import { ConexaoCaidaBanner } from "@/components/app/ConexaoCaidaBanner";
+import { FaixaDeAssinatura } from "@/components/app/FaixaDeAssinatura";
 import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 import { listarConexoesCaidas, type ConexaoCaida } from "@/lib/channels/health";
 import { VoiceCallProvider } from "@/components/voice/VoiceCallContext";
@@ -61,6 +65,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let conexoesCaidas: ConexaoCaida[] = [];
   let enrolled = false;
   let needsMfaGate = false;
+  // O aviso de vencimento próximo (migration 0393). Só para quem pode agir, e só quando há o que fazer.
+  let avisoDeAssinatura: { motivo: "em_teste" | "em_carencia"; dias: number } | null = null;
 
   if (activeOrg) {
     const admin = createAdminClient();
@@ -88,7 +94,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
      *    este layout — a cerca anterior lia o texto-fonte e reprovava esta
      *    refatoração sem que nada tivesse quebrado.
      */
-    const [orgRes, conexoes, isEnrolled, mfaRequired, modulos] = await Promise.all([
+    const [orgRes, conexoes, isEnrolled, mfaRequired, modulos, cobranca] = await Promise.all([
       admin
         .from("organizations")
         .select("onboarded_at, status, settings")
@@ -104,6 +110,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ),
       // Da INSTALAÇÃO: decide se a porta de um módulo opcional entra no menu.
       modulosLigados(admin),
+      // Cobrança (migration 0393). Memoizado por requisição, então a guarda que
+      // `requireRole` chama nas rotas desta mesma navegação não relê nada.
+      estadoDeCobrancaDoPedido(activeOrg.orgId),
     ]);
 
     const orgRow = orgRes.data;
@@ -113,16 +122,38 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
     if (orgRow && !orgRow.onboarded_at && !user.support) redirect("/onboarding");
     if (orgRow?.status === "suspended") redirect("/account-suspended");
+    // Cobrança vencida (migration 0393). Destino PRÓPRIO, e não
+    // `/account-suspended`: aquela tela diz "um administrador suspendeu sua
+    // conta" — causa diferente, ação diferente. Colapsar as duas mandaria metade
+    // das pessoas procurar a solução errada.
+    //
+    // `!user.support` de propósito: quem está em acompanhamento precisa entrar
+    // exatamente na organização que não pagou, para entender o que houve.
+    if (!cobranca.acesso.liberado && !user.support) redirect("/assinatura-vencida");
     // G4-02: expõe visibility_mode ao client (inbox decide visões visíveis).
     // Fonte confiável (admin client, org do cookie validado) — nunca do body.
     const mode = (orgRow?.settings as { visibility_mode?: VisibilityMode } | null)
       ?.visibility_mode;
+    if (
+      activeOrg.role === "admin" &&
+      precisaAvisar(cobranca.acesso) &&
+      (cobranca.acesso.motivo === "em_teste" || cobranca.acesso.motivo === "em_carencia")
+    ) {
+      avisoDeAssinatura = { motivo: cobranca.acesso.motivo, dias: cobranca.acesso.diasRestantes ?? 0 };
+    }
     activeOrg = {
       ...activeOrg,
       visibility_mode: mode ?? DEFAULT_VISIBILITY_MODE,
       // Mesma linha de `settings` já lida acima — nenhuma consulta a mais.
       cliente_pela_agenda: clientePelaAgendaLigado(orgRow?.settings),
       modulos_ligados: modulos,
+      // Portas que o plano contratado não inclui. Menu apenas: a rota é quem recusa.
+      destinos_ocultos_pelo_plano: destinosOcultosPeloPlano({
+        cobrancaLigada: cobranca.cobrancaLigada,
+        liberaTudo: cobranca.liberaTudo,
+        capacidades: cobranca.capacidades,
+        naoMedido: cobranca.acesso.naoMedido,
+      }),
     };
 
     // `marcaDaInstalacao()` é memoizada por TTL no PROCESSO (`lib/branding/
@@ -250,6 +281,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <EstiloDaMarcaDaOrganizacao css={cssDaOrganizacao} />
         <ImpersonateBanner impersonating={impersonating} />
         <ConexaoCaidaBanner caidas={conexoesCaidas} />
+        {avisoDeAssinatura ? <FaixaDeAssinatura {...avisoDeAssinatura} /> : null}
         {needsMfaGate ? (
           // Gate always mounted for MFA-required roles; it latches the blocking
           // decision client-side so the enroll Server Action's revalidation

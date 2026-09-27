@@ -17,6 +17,7 @@ import { CONVERSATION_TERMINAL_STATUSES } from "@/lib/schemas";
 import { orgTemAutomatico } from "@/lib/ai/agents/org-tem-automatico";
 import { comandosDaFila } from "@/lib/inbox/comando-da-conversa";
 import { aplicarMarcador } from "@/lib/inbox/marcador-da-conversa";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,19 @@ export async function GET(req: NextRequest): Promise<Response> {
       { requestId },
     );
   }
+
+  // Gate de COBRANÇA (migration 0393). Esta rota resolve a organização por
+  // `resolveActiveOrg` e não passa por `requireRole`, então a guarda é explícita —
+  // é o terceiro dos três pontos do gate. Quem prova que nenhuma rota ficou fora
+  // dos três é `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  //
+  // LER é o produto: esta rota alimenta os contadores das abas da caixa de
+  // entrada, e deixá-la aberta entregaria o essencial de graça a quem venceu.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: authUser?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const org = activeOrg.orgId;
   const sp = req.nextUrl.searchParams;

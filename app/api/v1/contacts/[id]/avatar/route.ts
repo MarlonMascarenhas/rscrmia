@@ -18,6 +18,7 @@ import type { NextRequest } from "next/server";
 
 import { fail } from "@/lib/api/wrappers";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,16 @@ export async function GET(
   if (!activeOrg) {
     return fail("no_active_org", "No active organization.", 403, { requestId });
   }
+
+  // Gate de COBRANÇA (migration 0393) — o terceiro dos três pontos, para quem
+  // resolve a organização por `resolveActiveOrg` e não passa por `requireRole`.
+  // Quem prova que nenhuma rota ficou fora é
+  // `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: authUser?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const admin = createAdminClient();
   // Service role bypassa RLS: o filtro por organization_id é obrigatório e vem

@@ -179,6 +179,11 @@ export interface ActiveOrg {
    */
   modulos_ligados?: readonly ModuloOpcional[];
   /**
+   * Portas do menu que o PLANO da organização não inclui (migration 0393). Vazio ou
+   * ausente = nada escondido. Apresentação, nunca autorização: a rota recusa.
+   */
+  destinos_ocultos_pelo_plano?: readonly string[];
+  /**
    * O que ESTA organização definiu para si — CAMPO A CAMPO, e só o que ela
    * mesma definiu.
    *

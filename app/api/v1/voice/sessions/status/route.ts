@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 
 import { ok } from "@/lib/api/wrappers";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,19 @@ export async function GET(): Promise<Response> {
   if (!user) return new Response(null, { status: 401 });
   const activeOrg = await resolveActiveOrg(user);
   if (!activeOrg) return new Response(null, { status: 403 });
+
+  // Gate de COBRANÇA (migration 0393). Esta rota resolve a organização por
+  // `resolveActiveOrg` e não passa por `requireRole`, então a guarda é explícita —
+  // é o terceiro dos três pontos do gate. Quem prova que nenhuma rota ficou fora
+  // dos três é `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  //
+  // LER é o produto: deixar a leitura aberta entregaria o essencial de graça a
+  // quem venceu.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: user?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const supabase = await createClient();
   const { data } = await supabase

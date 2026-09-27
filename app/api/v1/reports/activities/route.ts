@@ -75,7 +75,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   // Piso `viewer`: é leitura, e quem restringe por atendente é a RLS, não o
   // papel. Um piso mais alto esconderia da pessoa as atividades dela mesma.
-  const authz = await requireRole("viewer", { requestId, resource: "reports" });
+  const authz = await requireRole("viewer", { capacidade: "relatorios_avancados", requestId, resource: "reports" });
   if (!authz.ok) return authz.response;
   const { org: activeOrg } = authz;
 

@@ -1,3 +1,4 @@
+import { exigirFolgaNoLimite } from "@/lib/planos/guarda";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET  /api/v1/ai/agents  — list agents da org ativa (manager+).
@@ -94,6 +95,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const { user: authUser, org: activeOrg } = authz;
 
+  // Plano (migration 0393): teto de agentes de IA. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(activeOrg.orgId, "agentes", { requestId, idioma: authUser.idioma });
+  if (foraDoPlano) return foraDoPlano;
   let rawBody: unknown;
   try {
     rawBody = await req.json();

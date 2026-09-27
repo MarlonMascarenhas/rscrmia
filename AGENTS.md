@@ -11,7 +11,7 @@
 Sistema operacional de vendas open source com agentes de IA nativos, multi-nicho (e-commerce,
 clínicas, imobiliárias, infoprodutos, serviços), WhatsApp como canal primário via WAHA, CRM
 inteiro exposto por MCP. Multi-tenant com RLS desde o dia 1; LGPD nativa. Monetização =
-**self-host em VPS**, não assinatura. Posicionamento: [`VISION.md`](VISION.md); estado real de
+**self-host em VPS**, não assinatura — exceto neste fork, que pode cobrar assinatura por organização, inerte por padrão ([ADR-0004](docs/adr/0004-cobranca-por-assinatura-neste-fork.md)). Posicionamento: [`VISION.md`](VISION.md); estado real de
 implementação: [`docs/current-state.md`](docs/current-state.md).
 
 **Consequência que muda como você trabalha:** o produto é distribuído como código. Quem instala

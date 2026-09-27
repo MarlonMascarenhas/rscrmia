@@ -54,7 +54,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (supportDenied) return supportDenied;
   const requestId = req.headers.get("x-request-id") ?? undefined;
 
-  const autorizado = await requireRole("agent", { requestId, resource: "calendar_connections" });
+  const autorizado = await requireRole("agent", { capacidade: "agenda_google", requestId, resource: "calendar_connections" });
   if (!autorizado.ok) return autorizado.response;
   const { user, org } = autorizado;
 

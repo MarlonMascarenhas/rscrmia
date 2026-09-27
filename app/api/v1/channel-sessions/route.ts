@@ -1,3 +1,5 @@
+import { exigirFolgaNoLimite, exigirCapacidade } from "@/lib/planos/guarda";
+import { usoDoPedido } from "@/lib/planos/pedido";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET  /api/v1/channel-sessions — lista os canais WhatsApp da org (do DB).
@@ -80,6 +82,16 @@ export async function POST(req: NextRequest): Promise<Response> {
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const { user, org: activeOrg } = authz;
   if (await mfaEmDivida()) return fail("mfa_required", t("Confirme a verificação em duas etapas."), 403, { requestId });
+  // Plano (migration 0393): teto de conexões de WhatsApp. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(activeOrg.orgId, "conexoes", { requestId, idioma: user.idioma });
+  if (foraDoPlano) return foraDoPlano;
+  // A SEGUNDA conexão em diante é a capacidade `multiplas_conexoes`: a primeira todo plano tem.
+  const conexoesAgora = await usoDoPedido(activeOrg.orgId, "conexoes");
+  if (conexoesAgora !== null && conexoesAgora >= 1) {
+    const semMultiplas = await exigirCapacidade(activeOrg.orgId, "multiplas_conexoes", { requestId, idioma: user.idioma });
+    if (semMultiplas) return semMultiplas;
+  }
 
   const waha = getWahaClient();
   if (!waha) {

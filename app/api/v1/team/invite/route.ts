@@ -1,3 +1,4 @@
+import { exigirFolgaNoLimite } from "@/lib/planos/guarda";
 import type { EmailDeliveryError } from "@/lib/email/roteador";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { issueInvite } from "@/lib/auth/issue-invite";
@@ -51,6 +52,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const authz = await requireRole("admin", { requestId, resource: "team" });
   if (!authz.ok) return authz.response;
   const { user: authUser, org: activeOrg } = authz;
+  // Plano (migration 0393): convidar ocupa uma vaga de usuário. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(activeOrg.orgId, "usuarios", { requestId, idioma: authUser.idioma });
+  if (foraDoPlano) return foraDoPlano;
 
   let input;
   try {

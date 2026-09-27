@@ -23,6 +23,8 @@ import { audit } from "@/lib/audit";
 import { loadAuthUser, mfaEmDivida, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK, type ActiveOrg, type AuthUser, type Role } from "@/lib/auth/types";
 import { traduzir } from "@/lib/i18n/dicionario";
+import type { CapacidadeDePlano } from "@/lib/planos/capacidades";
+import { exigirAcessoLiberado, exigirCapacidade } from "@/lib/planos/guarda";
 import { createClient } from "@/lib/supabase/server";
 
 export type RoleCheck =
@@ -43,6 +45,28 @@ interface RequireRoleOpts {
    * NUNCA do body. O role vem de `fn_user_role_in_org(p_org)` nessa org.
    */
   organizationId?: string;
+  /**
+   * Isenta esta rota do gate de COBRANÇA, declarando POR QUÊ.
+   *
+   * String e não booleano de propósito: `portaDeSaida: true` seria um opt-out
+   * silencioso, e o mecanismo pelo qual o gate se perde é exatamente esse — a
+   * sétima rota copia o `true` da sexta sem que ninguém releia a razão. A razão
+   * escrita é lida por `tests/unit/planos-portas-de-saida.test.ts`, que reprova
+   * motivo fora da lista revisada.
+   *
+   * Só é porta de saída o que uma conta TRANCADA precisa poder fazer: pagar, ver
+   * a fatura, cancelar, sair, exportar os próprios dados. Uso do produto, nunca.
+   */
+  portaDeSaida?: string;
+  /**
+   * Esta rota só existe se o PLANO da organização inclui a capacidade (migration
+   * 0393). Fica aqui, e não num `if` na rota, pela razão de sempre: repetição de
+   * gate é como se perde um. Vem DEPOIS do gate de acesso — quem venceu leva
+   * `assinatura_vencida`, que é a causa que a pessoa resolve, e não `plano_nao_inclui`.
+   *
+   * Nunca em porta de saída: desconectar, cancelar e sair não dependem do plano.
+   */
+  capacidade?: CapacidadeDePlano;
 }
 
 /**
@@ -50,7 +74,7 @@ interface RequireRoleOpts {
  * `if (!authz.ok) return authz.response;`
  */
 export async function requireRole(min: Role, opts: RequireRoleOpts = {}): Promise<RoleCheck> {
-  const { requestId, resource, allowPlatformAdmin = false, organizationId } = opts;
+  const { requestId, resource, allowPlatformAdmin = false, organizationId, portaDeSaida, capacidade } = opts;
 
   const user = await loadAuthUser();
   if (!user) {
@@ -150,6 +174,39 @@ export async function requireRole(min: Role, opts: RequireRoleOpts = {}): Promis
         requestId,
       }),
     };
+  }
+
+  // Gate de COBRANÇA (migration 0393).
+  //
+  // Fica DEPOIS do rank e do MFA e ANTES do sucesso, pela mesma razão escrita
+  // acima para o MFA: quem não tem papel continua levando 403 por papel, sem que
+  // a resposta revele o estado de pagamento de quem nem chegaria lá.
+  //
+  // Aqui, e não no `proxy.ts`: o Edge não tem banco (`proxy.ts:92-94`). E aqui,
+  // e não rota por rota: com 356 rotas, `if` repetido é como se perde um
+  // (`lib/voice/guarda.ts:4-10`).
+  //
+  // ⚠️ Este ponto cobre 249 das 356 rotas de `/api/v1`. O ramo Bearer vive em
+  // `lib/mcp/auth.ts` e as que resolvem a org só por `resolveActiveOrg` chamam
+  // `exigirAcessoLiberado` na mão. Quem prova que nenhuma escapou é
+  // `tests/unit/planos-gate-cobre-toda-rota.test.ts`.
+  //
+  // Platform admin nunca chega aqui: sai em `allowPlatformAdmin` acima, e é o
+  // desfecho certo — quem administra a instalação é quem LIBERA.
+  if (!portaDeSaida && !user.support) {
+    const negado = await exigirAcessoLiberado(org.orgId, {
+      requestId,
+      idioma: user.idioma,
+    });
+    if (negado) return { ok: false, response: negado };
+  }
+
+  if (capacidade && !portaDeSaida && !user.support) {
+    const semCapacidade = await exigirCapacidade(org.orgId, capacidade, {
+      requestId,
+      idioma: user.idioma,
+    });
+    if (semCapacidade) return { ok: false, response: semCapacidade };
   }
 
   return { ok: true, user, org: { ...org, role: effectiveRole as Role } };

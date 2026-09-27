@@ -59,6 +59,7 @@ Os pedidos de feature dessa comunidade empurraram o produto na direção que hoj
 ## Modelo do projeto (sem letra miúda)
 
 - **O software é 100% open source (MIT), completo, sem versão paga.** Não vendemos assinatura. Não existe feature travada.
+  - *Emenda deste fork ([ADR-0004](docs/adr/0004-cobranca-por-assinatura-neste-fork.md)):* uma instalação pode vender acesso por organização, com planos e limites definidos pelo dono. É **inerte por padrão** — desligada, nenhuma feature fica atrás de pagamento, e quem só atualiza não muda em nada. O texto acima descreve o upstream.
 - **A monetização é por infraestrutura:** o projeto é desenvolvido em parceria com a **HostGator** — o caminho recomendado de produção é a VPS deles (datacenter em São Paulo), instalada pelo `hostgator-setup-kit` com 1 comando. Assinar pelo link de parceiro apoia o projeto e sai mais barato pra quem assina.
 - **O caminho genérico nunca é sabotado:** `docker compose` e o kit self-host funcionam em qualquer VPS. A parceria é o caminho recomendado, nunca o único. (Regra de ouro do open source sustentável: percepção de pegadinha mata a marca.)
 

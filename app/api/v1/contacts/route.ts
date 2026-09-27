@@ -1,3 +1,4 @@
+import { exigirFolgaNoLimite } from "@/lib/planos/guarda";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET  /api/v1/contacts — list (handler em ./_handler.ts)
@@ -169,6 +170,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   // O documento do titular é validado pela régua do PAÍS da organização (issue
   // #1033): quem decide é a coluna `organizations.country`, nunca o corpo da
   // requisição — mesma doutrina da moeda em `lib/catalogo/moeda-da-org.ts`.
+  // Plano (migration 0393): teto de contatos. Modo da instalação (`LIMITES_MODO`,
+  // nasce `avisar`) decide se recusa ou só registra — ninguém é bloqueado sem aviso.
+  const foraDoPlano = await exigirFolgaNoLimite(activeOrg.orgId, "contatos", { requestId, idioma: user.idioma });
+  if (foraDoPlano) return foraDoPlano;
   const perfil = await perfilDaOrganizacao(supabase, activeOrg.orgId);
 
   let input;

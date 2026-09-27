@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/types";
 import { fail, ok } from "@/lib/api/wrappers";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { exigirAcessoLiberado } from "@/lib/planos/guarda";
 import { listConversationsQuerySchema } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/server";
 import { comNomeDoAtendente } from "@/lib/users/com-nome-do-atendente";
@@ -34,6 +35,19 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!activeOrg) {
     return fail("no_active_org", t("No active organization."), 403, { requestId });
   }
+
+  // Gate de COBRANÇA (migration 0393). Esta rota resolve a organização por
+  // `resolveActiveOrg` e não passa por `requireRole`, então a guarda é explícita
+  // — é o terceiro dos três pontos, e `tests/unit/planos-gate-cobre-toda-rota.test.ts`
+  // é quem prova que nenhuma rota ficou de fora dos três.
+  //
+  // LER é o produto: a caixa de entrada é a tela principal, e deixá-la aberta
+  // entregaria o essencial de graça a quem venceu.
+  const semAcesso = await exigirAcessoLiberado(activeOrg.orgId, {
+    requestId,
+    idioma: authUser?.idioma,
+  });
+  if (semAcesso) return semAcesso;
 
   const url = new URL(req.url);
   const qsParsed = listConversationsQuerySchema.safeParse({

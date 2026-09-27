@@ -28,6 +28,7 @@
  * O custo de errar para cada lado é que decide, não a simetria entre os dois
  * arquivos.
  */
+import { exigirCapacidade } from "@/lib/planos/guarda";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { fail } from "@/lib/api/wrappers";
@@ -89,6 +90,14 @@ export async function exigirVozLigada(
    */
   opts: { requestId?: string; instalacaoOferece?: boolean } = {},
 ): Promise<Response | null> {
+  // O PLANO é um terceiro eixo, ao lado de "a instalação oferece" e "a organização
+  // consentiu" (`lib/voice/opt-in.ts`) — e nenhum dos três vence os outros. Vem
+  // primeiro porque é a causa que ninguém resolve com um clique dentro da voz: o
+  // que resolve é trocar de plano. A porta de SAÍDA (`DELETE /voice/sessions`)
+  // não passa por esta guarda, e continua funcionando com o plano sem voz.
+  const semPlano = await exigirCapacidade(organizationId, "voz", { requestId: opts.requestId });
+  if (semPlano) return semPlano;
+
   let escolha: EscolhaDeVoz;
   try {
     ({ escolha } = await lerEscolhaDaOrg(supabase, organizationId));

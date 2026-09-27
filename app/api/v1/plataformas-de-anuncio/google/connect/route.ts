@@ -37,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (supportDenied) return supportDenied;
   const requestId = req.headers.get("x-request-id") ?? undefined;
 
-  const autorizado = await requireRole("admin", { requestId, resource: "ad_platform_connections" });
+  const autorizado = await requireRole("admin", { capacidade: "anuncios", requestId, resource: "ad_platform_connections" });
   if (!autorizado.ok) return autorizado.response;
   const { user, org } = autorizado;
 

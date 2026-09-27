@@ -109,6 +109,7 @@ globalThis.fetch = async (entrada, init) => {
 };
 
 import "@testing-library/jest-dom/vitest";
+import { vi } from "vitest";
 
 // Node 25+ expõe `localStorage`/`sessionStorage` nativos que não servem sem
 // `--localstorage-file` (no 26.8 valem `undefined`; no 25.4 são um objeto sem `.clear`),
@@ -165,3 +166,53 @@ if (typeof document !== "undefined") {
     await new Promise((resolver) => setTimeout(resolver, 0));
   });
 }
+
+/**
+ * A COBRANÇA É NEUTRA EM TESTE UNITÁRIO — COMO QUALQUER DEPENDÊNCIA EXTERNA.
+ *
+ * O gate de cobrança (`lib/planos/`) vive dentro de `requireRole`, de
+ * `validateBearerToken` e de 18 rotas, e por isso quase todo teste de rota o
+ * atravessa sem ter nada a ver com assinatura. Sem esta linha, cada um deles
+ * passa a tentar uma consulta de rede ao Supabase de verdade — medido aqui:
+ * ~7 s por chamada, o suficiente para estourar o teto de 15 s de um teste que
+ * chama `requireRole` em laço (`tests/unit/require-role-mfa.test.ts`) — e a
+ * suíte que conta chamadas ao cliente admin
+ * (`tests/unit/inbox-enrichment-route.test.ts`) passa a enxergar uma que não é
+ * dela.
+ *
+ * O estado devolvido é o REAL de "cobrança desligada", montado pela própria
+ * decisão pura — não um objeto à mão que envelheça quando `EstadoDeCobranca`
+ * ganhar um campo. Desligada, nada tranca, nenhuma capacidade some e nenhum teto
+ * vale: é o comportamento de uma instalação que não vende, e portanto o que todo
+ * teste que NÃO é sobre cobrança já assumia.
+ *
+ * Quem TESTA a cobrança sai daqui em uma linha, no topo do arquivo:
+ *
+ *     vi.unmock("@/lib/planos/pedido");
+ *
+ * e mocka `@/lib/supabase/admin` (ou passa `opts.estado` / `opts.db` à guarda,
+ * que é o caminho recomendado — não toca em módulo nenhum).
+ */
+vi.mock("@/lib/planos/pedido", async () => {
+  const { decidirAcesso } = await import("@/lib/planos/decisao");
+  return {
+    estadoDeCobrancaDoPedido: async () => ({
+      acesso: decidirAcesso({
+        cobrancaLigada: false,
+        liberadoAte: null,
+        situacao: null,
+        carenciaAte: null,
+        agora: new Date(),
+      }),
+      planoId: null,
+      liberaTudo: true,
+      capacidades: [],
+      limites: {},
+      cobrancaLigada: false,
+      modoDeLimite: "avisar",
+    }),
+    // Nunca mede: sem cobrança não há teto, e uma medição de rede em teste
+    // unitário é exatamente o que este mock existe para evitar.
+    usoDoPedido: async () => null,
+  };
+});

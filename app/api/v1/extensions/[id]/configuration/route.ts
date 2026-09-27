@@ -20,7 +20,7 @@ export async function PUT(
   try {
     const denied = await requireSupportWrite();
     if (denied) return denied;
-    const authz = await requireRole("admin", { resource: "organization_extensions" });
+    const authz = await requireRole("admin", { capacidade: "extensoes", resource: "organization_extensions" });
     if (!authz.ok) return authz.response;
     requireExtensionOrganization(request, authz.org.orgId);
     if (authz.user.support) {
