@@ -3,16 +3,20 @@
  *
  * O que estes casos protegem, em ordem de gravidade:
  *
- *   1. A LP nunca promete o que o produto não faz. "Teste grátis" e "sem cartão" só
- *      aparecem quando o teste existe (cobrança ligada); desligada, a página troca a
- *      promessa por uma frase que continua verdadeira.
- *   2. O preço da LP é o preço do banco: vem dos planos publicados, e plano sem preço
+ *   1. O preço da LP é o preço do banco: vem dos planos publicados, e plano sem preço
  *      vigente NÃO aparece (o checkout o recusaria).
- *   3. Banco fora do ar não derruba a página: a porta de entrada de um negócio não dá 500
+ *   2. Banco fora do ar não derruba a página: a porta de entrada de um negócio não dá 500
  *      por causa da vitrine.
- *   4. `/painel` manda o logado para o produto e o deslogado para o login — e sessão que
+ *   3. A seção de planos (`app/_lp/rs/Planos.tsx`) usa a lista FIXA e verbatim dos três
+ *      planos originais (Essencial, Profissional, Completo) e cai para a lista GERADA a
+ *      partir de `inclui`/`tetos` em qualquer outro nome — e nunca oferece `/signup`
+ *      numa instalação `so_convite`.
+ *   4. O markup estático (`app/_lp/rs/markup.ts`) preserva o link ao painel e o texto
+ *      original no trecho de antes dos planos, e troca o modal de privacidade por links
+ *      reais no trecho de depois — sem sobrar `onclick`, `privModal` nem `openPrivacy`.
+ *   5. `/painel` manda o logado para o produto e o deslogado para o login — e sessão que
  *      falha na resolução vai para o login, nunca para um 500.
- *   5. `/painel` é público no proxy, e SÓ ele: `/painel/x` não nasce público de carona.
+ *   6. `/painel` é público no proxy, e SÓ ele: `/painel/x` não nasce público de carona.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,14 +38,9 @@ vi.mock("@/lib/auth/politica-de-cadastro", () => ({
 }));
 
 import { isPublicPath } from "@/lib/auth/public-paths";
-import { esquecerOfertaDaLp, lerOfertaDaLp } from "@/app/_lp/oferta";
-import {
-  Cabecalho,
-  Hero,
-  Perguntas,
-  Planos,
-  rotuloDoCadastro,
-} from "@/app/_lp/secoes";
+import { esquecerOfertaDaLp, lerOfertaDaLp, type OfertaDaLp } from "@/app/_lp/oferta";
+import { ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS } from "@/app/_lp/rs/markup";
+import { Planos } from "@/app/_lp/rs/Planos";
 import PainelPage from "@/app/painel/page";
 
 const config = (ligada: boolean, dias = "7") => ({
@@ -169,85 +168,80 @@ describe("lerOfertaDaLp", () => {
   });
 });
 
-describe("o que a página promete", () => {
-  const comTeste = { planos: [], testeGratisDias: 7, cadastro: "aberto" as const };
-  const semTeste = { planos: [], testeGratisDias: null, cadastro: "aberto" as const };
-  const soConvite = { planos: [], testeGratisDias: null, cadastro: "so_convite" as const };
-  const comAprovacao = { planos: [], testeGratisDias: null, cadastro: "com_aprovacao" as const };
-
-  it("o botão diz 'teste grátis' só quando o teste existe", () => {
-    expect(rotuloDoCadastro(comTeste)).toBe("Começar teste grátis");
-    expect(rotuloDoCadastro(semTeste)).toBe("Criar minha conta");
+describe("a vitrine de planos (app/_lp/rs/Planos.tsx)", () => {
+  const ofertaBase = (planos: OfertaDaLp["planos"], cadastro: OfertaDaLp["cadastro"] = "aberto"): OfertaDaLp => ({
+    planos,
+    testeGratisDias: null,
+    cadastro,
   });
 
-  it("'so_convite' não oferece cadastro; 'com_aprovacao' pede acesso", () => {
-    expect(rotuloDoCadastro(soConvite)).toBeNull();
-    expect(rotuloDoCadastro(comAprovacao)).toBe("Solicitar acesso");
+  const planoProfissional = {
+    nome: "Profissional",
+    descricao: "Para times pequenos",
+    liberaTudo: false,
+    precos: { mensal: { valorCents: 21700, moeda: "BRL" } },
+    inclui: [],
+    tetos: [],
+  };
+
+  it("plano 'Profissional': R$, valor sem símbolo, badge, classe 'pop', item original, e /signup", () => {
+    const html = renderToStaticMarkup(<Planos oferta={ofertaBase([planoProfissional])} />);
+    expect(html).toContain("R$");
+    expect(html).toContain("217");
+    expect(html).toContain("Mais escolhido");
+    expect(html).toContain('class="plan-card pop"');
+    expect(html).toContain("Follow-up automático");
+    expect(html).toContain('href="/signup"');
   });
 
-  it("Hero com 'so_convite' não leva ao cadastro, leva ao painel, e não fala em teste grátis", () => {
-    const html = renderToStaticMarkup(<Hero oferta={soConvite} />);
+  it("plano com nome fora dos três originais usa a lista GERADA, e não é 'pop'", () => {
+    const turbo = {
+      nome: "Turbo",
+      descricao: null,
+      liberaTudo: false,
+      precos: { mensal: { valorCents: 9900, moeda: "BRL" } },
+      inclui: ["Campanhas de WhatsApp"],
+      tetos: ["5 usuários"],
+    };
+    const html = renderToStaticMarkup(<Planos oferta={ofertaBase([turbo])} />);
+    expect(html).toContain("Campanhas de WhatsApp");
+    expect(html).toContain("Até 5 usuários");
+    expect(html).not.toContain("Mais escolhido");
+    expect(html).not.toContain('class="plan-card pop"');
+  });
+
+  it("'so_convite': todo botão de plano diz 'Entrar' e leva a /painel — nenhum /signup", () => {
+    const html = renderToStaticMarkup(<Planos oferta={ofertaBase([planoProfissional], "so_convite")} />);
     expect(html).not.toContain('href="/signup"');
     expect(html).toContain('href="/painel"');
-    expect(html).not.toMatch(/teste grátis/i);
+    expect(html).toContain("Entrar");
   });
 
-  it("Cabecalho com 'so_convite' tem só UM botão para o painel, e nenhum para /signup", () => {
-    const html = renderToStaticMarkup(<Cabecalho nome="Teste" oferta={soConvite} />);
-    expect(html.match(/href="\/painel"/g) ?? []).toHaveLength(1);
-    expect(html).not.toContain('href="/signup"');
-  });
-
-  it("com teste: anuncia os dias e 'sem cartão'", () => {
-    const html = renderToStaticMarkup(<Hero oferta={comTeste} />);
-    expect(html).toContain("7 dias de teste grátis. Sem cartão de crédito.");
-  });
-
-  it("SEM teste: não fala em teste grátis nem em cartão em lugar nenhum do hero", () => {
-    const html = renderToStaticMarkup(<Hero oferta={semTeste} />);
-    expect(html).not.toMatch(/teste grátis/i);
-    expect(html).not.toMatch(/cartão/i);
-  });
-
-  it("o botão principal leva ao cadastro", () => {
-    expect(renderToStaticMarkup(<Hero oferta={comTeste} />)).toContain('href="/signup"');
-  });
-
-  it("a pergunta 'preciso de cartão?' só existe quando há teste", () => {
-    expect(renderToStaticMarkup(<Perguntas oferta={comTeste} />)).toContain("Preciso de cartão de crédito para testar?");
-    expect(renderToStaticMarkup(<Perguntas oferta={semTeste} />)).not.toContain("cartão");
-  });
-
-  it("nenhum número inventado: sem porcentagem de ganho, sem 'clientes atendidos'", () => {
-    // Só o TEXTO visível, sem tags: o `16%` do gradiente e o `max-w-[85%]` de uma classe são
-    // CSS, não promessa.
-    const html = [
-      renderToStaticMarkup(<Hero oferta={comTeste} />),
-      renderToStaticMarkup(<Perguntas oferta={comTeste} />),
-    ]
-      .join("")
-      .replace(/<[^>]*>/g, " ");
-    expect(html).not.toMatch(/\d+\s?%/);
-    expect(html).not.toMatch(/mil clientes|milhares|\+\d+ empresas|nota \d/i);
+  it("oferta vazia: mostra o aviso e a garantia-bar, sem grid de planos", () => {
+    const html = renderToStaticMarkup(<Planos oferta={ofertaBase([])} />);
+    expect(html).toContain("Os planos estão sendo atualizados");
+    expect(html).toContain("garantia-bar");
+    expect(html).toContain("Cancele quando quiser, sem burocracia");
   });
 });
 
-describe("a vitrine de planos", () => {
-  it("SEM plano publicado, a seção inteira some", () => {
-    expect(renderToStaticMarkup(<Planos oferta={{ planos: [], testeGratisDias: 7, cadastro: "aberto" }} />)).toBe("");
+describe("o markup estático (app/_lp/rs/markup.ts)", () => {
+  it("ANTES_DOS_PLANOS mantém o link ao painel e o texto original do hero", () => {
+    expect(ANTES_DOS_PLANOS).toContain('href="/painel" class="nav-a">Entrar');
+    expect(ANTES_DOS_PLANOS).toContain("Pare de perder clientes");
   });
 
-  it("mostra nome, preço formatado em reais, o anual e os tetos", async () => {
-    dbAtual.db = dbFalso({ platform_config: config(true), planos: { data: [planoPro] } }).db;
-    // O `Intl` separa "R$" do valor com um espaço NÃO-SEPARÁVEL (U+00A0): normaliza para comparar.
-    const html = renderToStaticMarkup(<Planos oferta={await lerOfertaDaLp()} />).replace(/ /g, " ");
-    expect(html).toContain("Profissional");
-    expect(html).toContain("R$ 197,00");
-    expect(html).toContain("R$ 1.900,00 por ano");
-    expect(html).toContain("Até 5 usuários");
-    expect(html).toContain("Chamada de voz");
-    // O preço arquivado (R$ 99) nunca aparece.
-    expect(html).not.toContain("99,00");
+  it("DEPOIS_DOS_PLANOS troca o modal de privacidade por links reais", () => {
+    expect(DEPOIS_DOS_PLANOS).toContain('href="/legal/privacy"');
+    expect(DEPOIS_DOS_PLANOS).toContain('href="/legal/terms"');
+  });
+
+  it("nenhuma das duas strings sobrevive com onclick, privModal ou openPrivacy", () => {
+    for (const trecho of [ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS]) {
+      expect(trecho).not.toContain("onclick");
+      expect(trecho).not.toContain("privModal");
+      expect(trecho).not.toContain("openPrivacy");
+    }
   });
 });
 

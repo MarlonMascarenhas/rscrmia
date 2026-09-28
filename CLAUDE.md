@@ -21,16 +21,25 @@
 para Opus no plano e Sonnet na execução). Ele planeja, decide, resolve dúvida, revisa e é o único
 que conversa com o usuário. Os demais trabalham para ele.
 
+**REGRA ABSOLUTA — TUDO passa por este fluxo, sem exceção.** Todo pedido do usuário e **todo
+comando**, do maior ao menor, segue o mesmo caminho: o pai (Opus) planeja e os filhos executam.
+O pai **não edita arquivo e não roda comando** — nem uma linha, nem um `git status`, nem um teste:
+edição, comando de shell, teste, build e git vão para o `executor` (Sonnet); busca, contagem e
+conferência que exijam comando vão para a `busca-simples` (Haiku). As ferramentas do pai são ler
+(para planejar e revisar o diff que o filho entregou), delegar (`Agent`/`SendMessage`) e perguntar
+ao usuário (`AskUserQuestion`). "É pequeno demais para briefing" não existe: uma edição de uma linha
+ganha um briefing de uma linha.
+
 | Quem | Modelo | Faz | Não faz |
 |---|---|---|---|
-| **Pai** | Opus 5 | Entende o pedido, mede o repo, **escreve o plano**, decide, responde as DÚVIDAS dos filhos, revisa o resultado, pergunta ao usuário | Não gasta o próprio contexto em edição mecânica que um filho faz |
+| **Pai** | Opus 5 | Entende o pedido, mede o repo, **escreve o plano**, decide, responde as DÚVIDAS dos filhos, revisa o resultado, pergunta ao usuário | **Não edita arquivo nem roda comando** — nenhum, nem pequeno. Tudo que executa vai para um filho |
 | **`executor`** | Sonnet | Executa **um plano já fechado**: edita, roda comandos e testes, devolve evidência | Não decide, não amplia escopo, não chuta |
 | **`busca-simples`** | Haiku | Acha, lista, conta e confere (só lê) | Não edita, não opina |
 | `Plan` / `Explore` | herdado / Haiku | Desenho de plano complexo / varredura ampla | — |
 
 ### 1. O plano é do Opus, e o plano vem ANTES do código
 
-Todo trabalho que não seja trivial começa por um plano escrito pelo pai: o que muda, em quais
+Todo trabalho — inclusive o que parece trivial — começa por um plano escrito pelo pai: o que muda, em quais
 arquivos, o critério de aceite verificável e **o que NÃO mudar**. Não delegue "resolva isto": delegue
 "faça exatamente isto, aceito quando aquilo". Trabalho de **segurança, schema, RLS, RBAC, dinheiro
 ou LGPD** só é delegado com o plano fechado pelo pai; o pai revisa o diff antes de aceitar.
@@ -41,9 +50,11 @@ ou LGPD** só é delegado com o plano fechado pelo pai; o pai revisa o diff ante
 que o prova. 4. **O que NÃO fazer.** Ao chamar `Agent`, passe **`model` explícito** (`sonnet` para
 executar, `haiku` para busca) — não deixe herdar o Opus para uma tarefa simples.
 
-Delegue tarefa **simples, mecânica, independente ou paralelizável** (renomear, mover, replicar um
-padrão em N arquivos, escrever um teste com o caso já descrito, achar usos). Faça **no pai** o que é
-pequeno demais para valer um briefing, ou o que depende de julgamento.
+**Toda execução é delegada.** Edição de qualquer tamanho, comando de shell, teste, build, git e
+publicação vão para o `executor`; busca e contagem que precisem de comando vão para a
+`busca-simples`. O que depende de **julgamento** (decidir, escolher entre caminhos, revisar) fica no
+pai — mas o julgamento vira briefing, nunca edição feita pelo pai. Tarefas independentes (arquivos
+diferentes, sem ordem entre si) vão para filhos em paralelo.
 
 ### 3. NINGUÉM INVENTA — a regra que não tem exceção
 

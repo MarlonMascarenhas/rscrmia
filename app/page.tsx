@@ -1,80 +1,98 @@
 import type { Metadata } from "next";
-
-import { marcaDaInstalacao } from "@/lib/branding/instalacao";
-import { REGUA_DO_PRODUTO } from "@/lib/branding/regua-do-produto";
-import { camadaDaInstalacao, camadaDoAmbiente, resolverMarca } from "@/lib/branding/resolve";
-import { env } from "@/lib/env";
+import { Inter, Lexend } from "next/font/google";
 
 import { lerOfertaDaLp } from "./_lp/oferta";
-import { Cabecalho, ChamadaFinal, ComoFunciona, Hero, Nichos, Perguntas, Planos, Recursos, Rodape } from "./_lp/secoes";
+import { Interacoes } from "./_lp/rs/Interacoes";
+import "./_lp/rs/lp.css";
+import { ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS, JSON_LD } from "./_lp/rs/markup";
+import { Planos } from "./_lp/rs/Planos";
 
 /**
- * A LP DE VENDAS — A RAIZ DO SITE.
+ * A LP DE VENDAS — A RAIZ DO SITE, NESTE FORK.
  *
- * Antes daqui a raiz só redirecionava para `/app`. O painel continua em `/app`, e
- * `/painel` é a porta de entrada dele (`app/painel/page.tsx`): quem já é cliente
- * entra por lá, quem chegou agora vê esta página.
+ * Esta não é a LP genérica de `app/_lp/secoes.tsx` (que fala do produto pela marca
+ * branca, sem nome próprio): é a página que o dono da RS CRM IA editou, byte a byte,
+ * com "RS CRM IA" e "RS Mídias" escritos como texto fixo — decisão do dono para este
+ * fork (ADR-0004), não vazamento a corrigir. O painel continua em `/app`, e `/painel`
+ * é a porta de entrada dele (`app/painel/page.tsx`): quem já é cliente entra por lá,
+ * quem chegou agora vê esta página.
  *
- * ═══ DINÂMICA DE PROPÓSITO ═══
+ * ═══ O MARKUP É DADO, NÃO JSX ═══
  *
- * O nome do produto e a vitrine de planos são lidos em RUNTIME (marca da instalação e
- * `planos`). Prerenderizar no `next build` congelaria a marca do build — e a imagem
- * self-host é pré-buildada, então carregaria a nossa marca para sempre — e sairia sem
- * plano nenhum, porque o build não tem banco. Ver `lib/branding.ts`.
+ * `ANTES_DOS_PLANOS` e `DEPOIS_DOS_PLANOS` (`./_lp/rs/markup.ts`) são o HTML original
+ * tratado como string — copiado verbatim, sem reescrever texto nenhum — porque
+ * converter uma página de marketing inteira em JSX seria reescrevê-la, e reescrever é
+ * exatamente o que este fork não pode fazer aqui. A seção de planos é a ÚNICA parte
+ * que É React (`Planos.tsx`): o preço, o nome e a lista de cada cartão vêm de
+ * `OfertaDaLp` (banco, via `/admin/planos`), nunca de texto fixo.
+ *
+ * `style={{ display: "contents" }}` nos wrappers de `dangerouslySetInnerHTML` evita
+ * que a `<div>` que o React precisa para injetar HTML cru vire uma caixa extra na
+ * árvore visual — o CSS original (`lp.css`) não tem nenhum seletor de filho direto
+ * (`>`), então a caixa não mudaria a aparência, mas o `display:contents` remove
+ * qualquer dúvida sobre isso de uma vez.
+ *
+ * ═══ POR QUE `force-dynamic` ═══
+ *
+ * A vitrine de preços é lida em RUNTIME (`lerOfertaDaLp`, memoizada por TTL).
+ * Prerenderizar no `next build` congelaria os planos do momento do build — e a
+ * imagem self-host é pré-buildada, então a LP sairia sem plano nenhum, porque o
+ * build não tem banco.
  *
  * ═══ INDEXÁVEL ═══
  *
  * O layout raiz declara `robots: { index: false }` (o painel não deve aparecer em
- * busca). A LP é a única página que PRECISA aparecer, então o sobrescreve aqui.
- * Sem isso, a página de venda seria invisível para quem procura.
+ * busca). A LP é a única página que PRECISA aparecer, então sobrescreve aqui.
  */
 export const dynamic = "force-dynamic";
 
-async function nomeDoProduto(): Promise<string> {
-  // A MESMA pilha de camadas do layout raiz (banco acima, `.env` embaixo): duas
-  // resoluções divergiriam, e a divergência apareceria como a aba com uma marca e a
-  // página com outra.
-  const linha = await marcaDaInstalacao();
-  return resolverMarca([camadaDaInstalacao(linha), camadaDoAmbiente(env)], REGUA_DO_PRODUTO).name;
+const lexend = Lexend({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  variable: "--lp-lexend",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--lp-inter",
+});
+
+/** A `description` sai do próprio JSON-LD — uma fonte, não duas cópias divergentes. */
+function descricaoDoJsonLd(): string {
+  const dado = JSON.parse(JSON_LD) as { "@graph": Array<Record<string, unknown>> };
+  const app = dado["@graph"].find((n) => n["@type"] === "SoftwareApplication");
+  return typeof app?.description === "string" ? app.description : "";
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const nome = await nomeDoProduto();
+  const description = descricaoDoJsonLd();
   return {
-    // `absolute`: a raiz é a única página em que o título não leva o sufixo da marca.
-    title: { absolute: `${nome} — atendimento e vendas por WhatsApp com agentes de IA` },
+    // `absolute`: esta página não leva o sufixo de marca do layout raiz — o
+    // nome já É "RS CRM IA", escrito nesta própria página.
+    title: { absolute: "RS CRM IA" },
+    description,
     robots: { index: true, follow: true },
     openGraph: {
       type: "website",
-      siteName: nome,
-      title: `${nome} — atendimento e vendas por WhatsApp`,
-      description:
-        "Centralize o atendimento por WhatsApp num funil só. Agentes de IA resolvem o que dá para resolver e passam para o time humano o que importa.",
+      siteName: "RS CRM IA",
+      title: "RS CRM IA",
+      description,
     },
   };
 }
 
 export default async function LandingPage() {
-  const [nome, oferta] = await Promise.all([nomeDoProduto(), lerOfertaDaLp()]);
+  const oferta = await lerOfertaDaLp();
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <a
-        href="#conteudo"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
-      >
-        Ir para o conteúdo
-      </a>
-      <Cabecalho nome={nome} oferta={oferta} />
-      <main id="conteudo">
-        <Hero oferta={oferta} />
-        <Recursos />
-        <ComoFunciona />
-        <Nichos />
-        <Planos oferta={oferta} />
-        <Perguntas oferta={oferta} />
-        <ChamadaFinal oferta={oferta} />
-      </main>
-      <Rodape nome={nome} />
+    <div className={`lp-rs ${lexend.variable} ${inter.variable}`}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
+      <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: ANTES_DOS_PLANOS }} />
+      <Planos oferta={oferta} />
+      <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: DEPOIS_DOS_PLANOS }} />
+      <Interacoes />
     </div>
   );
 }

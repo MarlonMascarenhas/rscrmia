@@ -953,6 +953,11 @@ const HOSTS_DECLARADOS: Record<string, EntradaDeHost> = {
     motivo:
       "sufixo do iCalUID gravado no Google Calendar do cliente (lib/agenda/google/evento.ts). Identificador de fio que reconhecemos meses depois — já congelado como PROTOCOLO pela catraca de marca.",
   },
+  "schema.org": {
+    categoria: "PROTOCOLO",
+    motivo:
+      "`@context` do JSON-LD da LP de vendas (app/_lp/rs/markup.ts, copiado verbatim da fonte): é o identificador do vocabulário que buscadores reconhecem para ler `SoftwareApplication`/`FAQPage` como dados estruturados — não um endereço que o código chama, nem texto que o usuário lê na tela (fica dentro de um `<script type=\"application/ld+json\">`). Mesmo raciocínio de `s.whatsapp.net`, já nesta lista: é protocolo que código de FORA reconhece, não escolha nossa.",
+  },
 };
 
 describe("catraca de host de terceiro no código que embarca", () => {
@@ -1113,6 +1118,10 @@ describe("catraca de host de terceiro no código que embarca", () => {
       // protocolo manda. Entrou aqui porque a régua nova do #914 passou a
       // enxergá-lo, e não porque o produto ganhou host novo.
       "s.whatsapp.net",
+      // `@context` do JSON-LD da LP de vendas (app/_lp/rs/markup.ts): mesmo
+      // raciocínio de `s.whatsapp.net` acima — identificador de protocolo que
+      // buscadores reconhecem, não host que o produto chama nem texto de tela.
+      "schema.org",
       "tusitio.com",
       // Exemplo de link do WhatsApp gerado pela tela de Conversões (#924). Está
       // aqui, e não em FORNECEDOR, porque o produto NÃO fala com esse host: quem
