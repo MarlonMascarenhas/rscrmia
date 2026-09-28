@@ -89,8 +89,10 @@ describe("dedup do ingest deixa rastro", () => {
       "utf8",
     );
     const trechos = fonte.split('if (insertErr?.code === "23505")');
-    // Sai um trecho antes + um por caminho de dedup (inbound e outbound).
-    expect(trechos.length, "esperado 2 caminhos de dedup no ingest").toBe(3);
+    // Sai um trecho antes + um por caminho de dedup: inbound, outbound, e os
+    // pares de grupo (`handleInboundDeGrupo`/`handleOutboundDeGrupo`), que
+    // ganharam o próprio dedup 23505 e precisam do mesmo rastro.
+    expect(trechos.length, "esperado 4 caminhos de dedup no ingest (inbound, outbound, inbound de grupo, outbound de grupo)").toBe(5);
     for (const t of trechos.slice(1)) {
       // Janela larga o bastante para o comentário que explica o porquê: medido,
       // o do inbound sozinho passa de 500 chars e cortava o `logger.info` fora.

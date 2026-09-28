@@ -181,7 +181,10 @@ export function ConversationListItem({
     bot_silenced_until: conversation.bot_silenced_until ?? null,
     force_human: c?.force_human ?? null,
     is_blocked: c?.is_blocked ?? null,
-    automaticoDaOrg,
+    // Grupo NUNCA é atendido pelo automático (decisão do dono): afirmar
+    // "ninguem"/"aguardando" aqui em vez de "automatico" seria a tela
+    // prometendo uma resposta que o motor nunca vai dar.
+    automaticoDaOrg: conversation.is_group ? false : automaticoDaOrg,
   });
   const isAi = comando.quem === "automatico";
   const dot = COR_DO_COMANDO[comando.quem] ?? COR_DO_COMANDO.ninguem;
@@ -256,14 +259,21 @@ export function ConversationListItem({
           </div>
         )}
         <div className="flex items-baseline justify-between gap-2">
-          <span
-            className={cn(
-              "truncate text-sm",
-              unread > 0 ? "font-semibold text-text" : "font-medium text-text",
-              c?.is_anonymized && "font-normal italic text-text-muted",
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span
+              className={cn(
+                "truncate text-sm",
+                unread > 0 ? "font-semibold text-text" : "font-medium text-text",
+                c?.is_anonymized && "font-normal italic text-text-muted",
+              )}
+            >
+              {displayName}
+            </span>
+            {conversation.is_group && (
+              <Badge variant="info" className="h-4 shrink-0 px-1.5 text-[10px]" data-testid="selo-grupo">
+                {t("Grupo")}
+              </Badge>
             )}
-          >
-            {displayName}
           </span>
           <span
             className="shrink-0 text-[11px] tabular-nums text-text-subtle"

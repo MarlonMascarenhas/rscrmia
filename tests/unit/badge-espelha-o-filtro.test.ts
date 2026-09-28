@@ -54,6 +54,20 @@ describe("quais filtros a contagem aplica", () => {
     ]);
   });
 
+  it("groups=only vira igualdade em is_group=true", () => {
+    expect(filtrosAuxiliaresDaContagem(sp("groups=only"))).toContainEqual([
+      "is_group",
+      true,
+    ]);
+  });
+
+  it("groups=exclude vira igualdade em is_group=false", () => {
+    expect(filtrosAuxiliaresDaContagem(sp("groups=exclude"))).toContainEqual([
+      "is_group",
+      false,
+    ]);
+  });
+
   it("o marcador NÃO vira igualdade numa coluna que não existe (#1223)", () => {
     // `conversations` não tem coluna `tag` — `tag` é o nome do parâmetro da URL.
     // O marcador mora em `conversations.tags` (text[], migration 0033) e no campo

@@ -252,7 +252,7 @@ DeskcommCRM é um sistema operacional de vendas open source com agentes de IA na
   `tests/unit/opt-out-deteccao.test.ts`.
 - Mídia: subir pro Supabase Storage primeiro, passar URL ao WAHA (não inline base64)
 - Multi-device: assinar `message.any` (não só `message`); tratar `fromMe=true` sem duplicar
-- Grupos: SKIP CRM binding se `chatId.endsWith('@g.us')`. Sender é `p.author`, não `p.from`
+- Grupos: só entram na caixa de entrada quando a conexão liga `channel_sessions.mostrar_grupos` (migration 0394); nunca fazem binding de CRM — não viram lead nem contato de lista, trava no banco; o autor da mensagem fica em `messages.metadata.autor`; a IA não responde em grupo
 - Cron `recover-stuck-messages` (`app/api/v1/cron/recover-stuck-messages/route.ts`, agendado no `scheduler` do `docker-compose.prod.yml`): marca `status='sending'` há >5min como `failed` **e abre aviso na Central** (`agent_inbox_items` kind `message_send_stuck`). Não toca em `queued`: esse estado tem dono (o agent-engine reagenda por `SEND_QUEUED_RETRY_MS`), e falhá-lo perderia mensagem que ia sair. Não reenvia — envio em dobro é pior que não-envio
 
 ### Marca própria (white-label)

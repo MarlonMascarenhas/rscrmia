@@ -343,7 +343,9 @@ describe("sessões: conflito conhecido só converge com identidade e pós-condi�
     ["outra identidade", { name: "outra" }],
     ["outro engine", { engine: { engine: "WEBJS" } }],
     ["config inválida", { config: null }],
-    ["filtro explícito incompatível", { config: { ignore: { groups: false } } }],
+    // `groups` deixou de ser sinal de incompatibilidade (é preferência da
+    // conexão); o caso incompatível agora precisa divergir noutra chave.
+    ["filtro explícito incompatível", { config: { ignore: { status: false } } }],
   ])("conflito de create com %s falha sem tomar a sessão", async (_label, extra) => {
     await receive([create(422, duplicate), read(session("STOPPED", extra))], async (c) => {
       await expect(c.startSession(name)).rejects.toThrow("waha_create_422");

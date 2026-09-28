@@ -128,6 +128,20 @@ describe("ConversationHeader — Fechar e Arquivar por AlertDialog", () => {
     });
   });
 
+  it("conversa de grupo mostra o selo 'Grupo' no cabeçalho", async () => {
+    render(
+      <ConversationHeader
+        conversation={{ ...conversa("open"), is_group: true } as ConversationWithContact}
+      />,
+    );
+    expect(screen.getByTestId("selo-grupo")).toHaveTextContent("Grupo");
+  });
+
+  it("conversa 1:1 não mostra o selo 'Grupo'", async () => {
+    render(<ConversationHeader conversation={conversa("open")} />);
+    expect(screen.queryByTestId("selo-grupo")).not.toBeInTheDocument();
+  });
+
   it("Arquivar, numa conversa já encerrada, não repete o aviso de encerramento", async () => {
     const user = userEvent.setup();
     render(<ConversationHeader conversation={conversa("closed")} />);

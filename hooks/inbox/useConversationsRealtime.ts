@@ -94,6 +94,8 @@ export interface ConversationsFilters {
   unread?: boolean;
   channel_session_id?: string;
   tag?: string;
+  /** `only` = só grupos; `exclude` = só 1:1. Ausente = os dois juntos. */
+  groups?: "only" | "exclude";
 }
 
 interface ListResponse {
@@ -131,6 +133,7 @@ export function useConversationsRealtime(
       if (filters.unread) qs.set("unread", "true");
       if (filters.channel_session_id) qs.set("channel_session_id", filters.channel_session_id);
       if (filters.tag) qs.set("tag", filters.tag);
+      if (filters.groups) qs.set("groups", filters.groups);
       if (pageParam) qs.set("cursor", pageParam);
       qs.set("limit", "50");
       try {

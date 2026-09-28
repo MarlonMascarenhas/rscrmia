@@ -173,6 +173,8 @@ export async function GET(req: NextRequest): Promise<Response> {
       .from("contacts")
       .select("id")
       .eq("organization_id", activeOrg.orgId)
+      // Grupo do WhatsApp nunca aparece na busca da fila de follow-up (migration 0394).
+      .eq("is_group", false)
       .or(`name.ilike.%${safeQ}%,display_name.ilike.%${safeQ}%,phone_number.ilike.%${safeQ}%`)
       .limit(500); // ponytail: fila é escala MVP; sobe se virar hot path
     if (cErr) return fail("internal_error", cErr.message, 500, { requestId });

@@ -72,7 +72,13 @@ export type SkipReason =
    * fail-closed, porque schema pela metade é exatamente quando não se quer a IA
    * solta.
    */
-  | "nao_elegivel_para_ia";
+  | "nao_elegivel_para_ia"
+  /**
+   * Conversa de GRUPO (`conversations.is_group`). IA não responde nem analisa
+   * sentimento em grupo — push e automações continuam valendo (decisão do
+   * dono do produto); a trava é só aqui, no caminho de gasto pago.
+   */
+  | "group_conversation";
 
 export interface BotContext {
   serviceBoundary?: ServiceBoundary;

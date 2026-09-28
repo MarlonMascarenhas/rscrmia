@@ -73,7 +73,7 @@ describe("conexão recuperável", () => {
     f.transport.createSession.mockResolvedValue({ created: false, session: { name: "owned", status: "STOPPED" } });
     f.transport.startExistingSession.mockResolvedValue({ name: "owned", status: "SCAN_QR_CODE" });
     expect((await connectWahaChannel(f.db, f.db, f.transport, f.input)).channel.status).toBe("SCAN_QR_CODE");
-    expect(f.transport.createSession).toHaveBeenNthCalledWith(2, "owned");
+    expect(f.transport.createSession).toHaveBeenNthCalledWith(2, "owned", { mostrarGrupos: false });
     expect(f.transport.startExistingSession).toHaveBeenNthCalledWith(2, "owned");
     expect(f.transport.deleteSession).not.toHaveBeenCalled();
   });
@@ -117,7 +117,7 @@ describe("nome de sessão fora do teto do WAHA", () => {
     const novo = f.renomeios[0]!;
     expect(novo.length).toBeLessThanOrEqual(54);
     expect(novo).toMatch(/^org_[0-9a-f]{8}_[0-9a-f]{32}$/);
-    expect(f.transport.createSession).toHaveBeenCalledWith(novo);
+    expect(f.transport.createSession).toHaveBeenCalledWith(novo, { mostrarGrupos: false });
     expect(f.transport.startExistingSession).toHaveBeenCalledWith(novo);
     expect(f.transport.createSession).not.toHaveBeenCalledWith(NOME_LEGADO);
     expect(resultado.channel.status).toBe("SCAN_QR_CODE");
@@ -151,7 +151,7 @@ describe("nome de sessão fora do teto do WAHA", () => {
     const nome = "o".repeat(54);
     const f = fixture({ waha_session_name: nome });
     expect((await connectWahaChannel(f.db, f.db, f.transport, f.input)).channel.status).toBe("SCAN_QR_CODE");
-    expect(f.transport.createSession).toHaveBeenCalledWith(nome);
+    expect(f.transport.createSession).toHaveBeenCalledWith(nome, { mostrarGrupos: false });
     expect(f.renomeios).toEqual([]);
   });
 

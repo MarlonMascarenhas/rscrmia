@@ -51,6 +51,8 @@ export async function GET(_req: NextRequest): Promise<Response> {
     .select("tags")
     .eq("organization_id", authz.org.orgId)
     .neq("tags", "{}")
+    // Grupo do WhatsApp nunca alimenta o vocabulário de tags (migration 0394).
+    .eq("is_group", false)
     .order("updated_at", { ascending: false })
     .limit(CONTATOS_LIDOS);
   // A falha SOBE: lista vazia diria "não há tags" em cima de um erro.

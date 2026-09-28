@@ -232,9 +232,9 @@ owner: Rafael Melgaço
 ### W-09 — Mensagens em grupos não criam leads
 - **Origem**: Sub-PRD 03 §3.10 (edge cases)
 - **Tipo**: Hard constraint
-- **Regra**: GIVEN webhook inbound com `chatId.endsWith('@g.us')`; WHEN o handler processaria binding CRM; THEN binding é abortado, mensagem é persistida como `messages.metadata.is_group=true` mas SEM lead criado.
+- **Regra**: GIVEN webhook inbound com `chatId.endsWith('@g.us')`; WHEN o handler processaria binding CRM; THEN binding é abortado; se a conexão tem `channel_sessions.mostrar_grupos` desligado (padrão), a mensagem é descartada na entrada; se ligado, é persistida numa conversa com `conversations.is_group=true`, ligada a um contato-grupo — em nenhum dos dois casos cria lead.
 - **Enforcement**: Worker de webhook.
-- **Exceção**: Tenant pode opt-in em fase futura pra "atendimento de grupo" (fora do MVP).
+- **Exceção**: `channel_sessions.mostrar_grupos` (migration 0394, toggle "Mostrar grupos na caixa de entrada" em Conexões) liga a exibição por canal; mesmo ligado, não faz binding de CRM.
 
 ### W-10 — Multi-device sync requer `message.any`
 - **Origem**: Sub-PRD 03 §3.9

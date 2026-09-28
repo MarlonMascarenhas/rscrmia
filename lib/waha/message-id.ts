@@ -1,3 +1,5 @@
+import { idCruDeMensagemDeGrupo } from "@/lib/waha/grupo";
+
 /**
  * Extração do id externo da resposta de envio do WAHA (Fase 4A-3 da fusão).
  *
@@ -95,4 +97,20 @@ export function chatIdFromWaMessageId(id: string): string | null {
   if (first === -1 || last === first) return null;
   const chat = id.slice(first + 1, last);
   return chat.includes('@') ? chat : null;
+}
+
+/**
+ * Todos os formatos sob os quais uma mesma mensagem pode ter sido gravada em
+ * `messages.external_id`, para casar ack e dedup sem depender de qual dos
+ * dois lados (envio nosso vs. webhook) gravou primeiro:
+ *   - `id` como chegou (composto ou já-bare);
+ *   - `bareWaMessageId(id)` — a cauda depois do último `_` (1:1);
+ *   - `idCruDeMensagemDeGrupo(id)` — o 3º segmento do composto de 4 partes
+ *     exclusivo de GRUPO (`{fromMe}_{chatId}_{msgId}_{participant}`).
+ *
+ * Únicos e sem `null`.
+ */
+export function candidatosDeIdWaha(id: string): string[] {
+  const candidatos = [id, bareWaMessageId(id), idCruDeMensagemDeGrupo(id)];
+  return [...new Set(candidatos.filter((c): c is string => c !== null))];
 }

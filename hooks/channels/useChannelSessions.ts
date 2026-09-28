@@ -22,6 +22,7 @@ export interface ChannelSession {
   daily_message_limit: number;
   is_warmup_complete: boolean | null;
   created_at: string;
+  mostrar_grupos?: boolean;
 }
 
 export type ConnectionHealth = "connected" | "connecting" | "down" | "none" | "unknown";

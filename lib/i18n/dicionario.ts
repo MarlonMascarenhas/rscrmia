@@ -6341,6 +6341,9 @@ export const DICIONARIO: Traducoes = {
     {
       es: "Uno de los contactos seleccionados no está disponible. Puede haberse anonimizado o fusionado con otro.",
     },
+  "Grupo do WhatsApp não pode ser juntado a outro contato.": {
+    es: "Un grupo de WhatsApp no puede unirse a otro contacto.",
+  },
   "Organização ativa não resolvida.": { es: "No se pudo determinar la organización activa." },
   "Mostrando os duplicados entre os contatos mais antigos. Junte estes e reabra para ver os próximos.": {
     es: "Se muestran los duplicados de los contactos más antiguos. Junta estos y vuelve a abrir para ver los siguientes.",
@@ -11765,6 +11768,30 @@ export const DICIONARIO: Traducoes = {
   "Ver planos": { es: "Ver planes" },
   "Atualizar pagamento": { es: "Actualizar pago" },
   "Agentes de IA": { es: "Agentes de IA" },
+
+  // ─── Grupos do WhatsApp (channel-sessions, inbox) ───
+  "Grupo": { es: "Grupo" },
+  "Mostrar grupos na caixa de entrada": { es: "Mostrar grupos en la bandeja de entrada" },
+  "As mensagens dos grupos deste número chegam à caixa de entrada e a equipe responde por lá. Grupos não viram contato nem negócio, e a IA não responde neles.": {
+    es: "Los mensajes de los grupos de este número llegan a la bandeja de entrada y el equipo responde desde allí. Los grupos no se convierten en contacto ni en negocio, y la IA no responde en ellos.",
+  },
+  "Grupos aumentam o volume de mensagens recebidas por este número.": {
+    es: "Los grupos aumentan el volumen de mensajes recibidos por este número.",
+  },
+  "Grupos ligados neste número.": { es: "Grupos activados en este número." },
+  "Grupos desligados neste número.": { es: "Grupos desactivados en este número." },
+  "Salvo. O WhatsApp não confirmou a mudança — use Reconectar neste número para aplicar.": {
+    es: "Guardado. WhatsApp no confirmó el cambio: usa Reconectar en este número para aplicarlo.",
+  },
+  "Não foi possível salvar a opção de grupos.": { es: "No fue posible guardar la opción de grupos." },
+  "Conversas e grupos": { es: "Conversaciones y grupos" },
+  "Só grupos": { es: "Solo grupos" },
+  "Sem grupos": { es: "Sin grupos" },
+  "Filtrar grupos": { es: "Filtrar grupos" },
+  "Conversa de grupo do WhatsApp. Grupos não viram contato nem negócio, e o atendimento automático não responde aqui.": {
+    es: "Conversación de grupo de WhatsApp. Los grupos no se convierten en contacto ni en negocio, y la atención automática no responde aquí.",
+  },
+  "Grupo do WhatsApp não vira negócio.": { es: "Un grupo de WhatsApp no se convierte en negocio." },
 };
 
 /**

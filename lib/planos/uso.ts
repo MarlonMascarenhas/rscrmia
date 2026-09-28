@@ -80,9 +80,11 @@ export async function medirUso(
           limite, organizationId,
         );
       case "contatos":
+        // Grupo do WhatsApp nunca conta para o teto de plano (migration 0394).
         return contar(
           db.from("contacts").select("id", head)
-            .eq("organization_id", organizationId).eq("is_anonymized", false),
+            .eq("organization_id", organizationId).eq("is_anonymized", false)
+            .eq("is_group", false),
           limite, organizationId,
         );
       case "mensagens_por_mes":

@@ -108,7 +108,9 @@ export function ConversationHeader({ conversation }: Props) {
     bot_silenced_until: conversation.bot_silenced_until ?? null,
     force_human: c?.force_human ?? null,
     is_blocked: conversation.contacts?.is_blocked ?? null,
-    automaticoDaOrg: automaticoDaOrg.data,
+    // Grupo NUNCA é atendido pelo automático (decisão do dono): afirmar
+    // "automatico" aqui prometeria uma resposta que o motor nunca vai dar.
+    automaticoDaOrg: conversation.is_group ? false : automaticoDaOrg.data,
   });
 
   const encerrada = status === "closed" || status === "archived" || status === "resolved";
@@ -164,6 +166,11 @@ export function ConversationHeader({ conversation }: Props) {
         <div className="flex items-center gap-2">
           <ChannelLogo channel={conversation.channel_sessions} size={20} />
           <h2 className="truncate text-sm font-semibold">{displayName}</h2>
+          {conversation.is_group && (
+            <Badge variant="info" className="h-4 px-1.5 text-[10px]" data-testid="selo-grupo">
+              {t("Grupo")}
+            </Badge>
+          )}
           <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
             {t(STATUS_LABEL[status] ?? status)}
           </Badge>

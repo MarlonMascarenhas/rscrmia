@@ -57,6 +57,8 @@ export interface InboxFiltersValue {
   onlyUnread: boolean;
   channel_session_id?: string;
   tag?: string;
+  /** `only` = só grupos; `exclude` = só 1:1. Ausente = os dois juntos. */
+  groups?: "only" | "exclude";
 }
 
 interface Props {
@@ -123,6 +125,7 @@ export function InboxFilters({ value, onChange }: Props) {
     unread: value.onlyUnread,
     tag: value.tag,
     channel_session_id: value.channel_session_id,
+    groups: value.groups,
   });
 
   const tabs = activeOrg
@@ -153,6 +156,17 @@ export function InboxFilters({ value, onChange }: Props) {
     !channels.some((c) => c.id === value.channel_session_id);
   // Alternador só aparece com 2+ números — com um só não há o que alternar.
   const showChannelSwitch = (channels?.length ?? 0) >= 2 || filtroForaDaLista;
+  // O SELETOR DE GRUPOS SÓ APARECE QUANDO HÁ GRUPO NO JOGO.
+  //
+  // Numa organização em que NENHUM número ligou `mostrar_grupos`, a lista nunca
+  // tem grupo — oferecer "Só grupos"/"Sem grupos" ali seria um controle que
+  // sempre devolve a mesma coisa. `value.groups != null` mantém o seletor de pé
+  // quando o filtro já está aplicado (ex.: veio por outra tela ou por um canal
+  // que acabou de desligar `mostrar_grupos`), pela mesma razão que
+  // `filtroForaDaLista` segura o de número acima: o filtro some, a conversa
+  // some junto, e nada na tela explicaria por quê.
+  const mostrarSeletorDeGrupos =
+    (channels?.some((c) => c.mostrar_grupos === true) ?? false) || value.groups != null;
   /**
    * O SELETOR NÃO PODE SUMIR DEBAIXO DO MENU ABERTO.
    *
@@ -280,7 +294,7 @@ export function InboxFilters({ value, onChange }: Props) {
           </button>
         </div>
 
-        {(showChannelSwitch || mostrarSeletorDeTag) && (
+        {(showChannelSwitch || mostrarSeletorDeTag || mostrarSeletorDeGrupos) && (
           <div className="flex gap-2">
             {showChannelSwitch && (
               <Select
@@ -357,6 +371,33 @@ export function InboxFilters({ value, onChange }: Props) {
                       </span>
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {mostrarSeletorDeGrupos && (
+              <Select
+                value={value.groups ?? "all"}
+                onValueChange={(v) =>
+                  onChange({
+                    ...value,
+                    groups: v === "all" ? undefined : (v as "only" | "exclude"),
+                  })
+                }
+              >
+                <SelectTrigger
+                  className={cn(
+                    "h-8 min-w-0 flex-1 rounded-full border-transparent bg-surface-elevated px-3 text-xs shadow-none",
+                    value.groups != null && "border-accent bg-accent-soft text-accent",
+                  )}
+                  aria-label={t("Filtrar grupos")}
+                >
+                  <SelectValue placeholder={t("Conversas e grupos")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("Conversas e grupos")}</SelectItem>
+                  <SelectItem value="only">{t("Só grupos")}</SelectItem>
+                  <SelectItem value="exclude">{t("Sem grupos")}</SelectItem>
                 </SelectContent>
               </Select>
             )}

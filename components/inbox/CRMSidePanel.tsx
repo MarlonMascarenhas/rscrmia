@@ -461,7 +461,13 @@ export function CRMSidePanel({ conversation }: Props) {
   const localeDaData = useLocaleDeData();
   const t = useT();
   const contact = conversation?.contacts ?? null;
-  const contactId = contact?.id ?? null;
+  // Grupo não vira contato nem negócio (decisão do dono): as seções abaixo —
+  // leads, pedidos, demandas, memória — perguntam pelo CONTATO, e um grupo tem
+  // uma linha em `contacts` só para existir na lista (`is_group=true`), nunca
+  // um dossiê de CRM. Forçar null aqui evita a `crm-summary` de um contato que
+  // não tem lead, pedido nem demanda — o painel de grupo (abaixo) nem chega a
+  // pedir essas seções.
+  const contactId = conversation?.is_group ? null : (contact?.id ?? null);
   const [desfechoDraft, setDesfechoDraft] = useState<DesfechoDraft | null>(null);
   // A saída do filtro produz null enquanto o detalhe carrega. O rascunho não
   // some nessa lacuna; outra conversa/contato real o descarta, sem expô-lo.
@@ -601,6 +607,42 @@ export function CRMSidePanel({ conversation }: Props) {
     return (
       <aside className="flex h-full items-center justify-center border-l border-border p-4 text-center text-xs text-muted-foreground">
         {t("Selecione uma conversa para ver detalhes do contato.")}
+      </aside>
+    );
+  }
+
+  // GRUPO NÃO TEM DOSSIÊ DE CRM. As seções abaixo (leads, pedidos, demandas,
+  // memória) perguntam por um CONTATO que decide, compra e tem um funil — um
+  // grupo do WhatsApp não é nenhuma dessas coisas (decisão do dono: nunca
+  // vira contato de verdade nem negócio). O painel aqui é só identidade + a
+  // etiqueta que já existe para qualquer conversa.
+  if (conversation.is_group) {
+    return (
+      <aside
+        className="flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4"
+        data-testid="painel-grupo"
+      >
+        <section>
+          <h3 className="text-xs font-semibold text-text">{t("Grupo")}</h3>
+          <Card className="mt-2 space-y-2 p-3 text-sm">
+            <div className="font-medium">{displayName}</div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "Conversa de grupo do WhatsApp. Grupos não viram contato nem negócio, e o atendimento automático não responde aqui.",
+              )}
+            </p>
+          </Card>
+        </section>
+
+        <Separator />
+
+        {!readonly && (
+          <ConversationTagsEditor
+            conversationId={conversation.id}
+            orgId={conversation.organization_id}
+            tags={conversation.tags ?? []}
+          />
+        )}
       </aside>
     );
   }

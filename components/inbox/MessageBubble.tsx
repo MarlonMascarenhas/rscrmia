@@ -14,6 +14,7 @@ import {
   extractCitations,
   isAiGeneratedMessage,
 } from "@/lib/ai/citations/types";
+import { autorDaMensagem } from "@/lib/inbox/autor-da-mensagem";
 
 interface Props {
   message: Message;
@@ -110,6 +111,11 @@ export function MessageBubble({
     return null;
   })();
 
+  // QUEM FALOU, num grupo — só entra em mensagem RECEBIDA: numa conversa 1:1 o
+  // metadata nunca tem `autor` (a ingestão só grava para grupo), e o outbound
+  // é sempre o CRM/atendente/IA, que `senderLabel` já nomeia acima.
+  const autorDoGrupo = !isOutbound ? autorDaMensagem(message.metadata) : null;
+
   return (
     <div
       className={cn(
@@ -171,6 +177,11 @@ export function MessageBubble({
           isFailed && "border border-destructive",
         )}
       >
+        {autorDoGrupo && (
+          <p className="mb-0.5 text-[11px] font-semibold text-accent" data-testid="autor-do-grupo">
+            {autorDoGrupo}
+          </p>
+        )}
         {/*
           A CITAÇÃO, dentro da bolha e acima do texto — o fio.
 

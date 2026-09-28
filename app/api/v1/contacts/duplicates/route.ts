@@ -74,6 +74,8 @@ export async function GET(): Promise<Response> {
     .eq("organization_id", org.orgId)
     .is("is_merged_into", null)
     .eq("is_anonymized", false)
+    // Grupo do WhatsApp nunca é candidato a fusão (migration 0394).
+    .eq("is_group", false)
     .order("created_at", { ascending: true })
     .limit(TETO_DE_VARREDURA + 1);
   if (error) {

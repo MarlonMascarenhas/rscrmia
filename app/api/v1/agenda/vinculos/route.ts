@@ -18,6 +18,8 @@ export async function GET(req: Request) {
     .select("id,name,display_name,phone_number")
     .eq("organization_id", auth.org.orgId)
     .eq("is_anonymized", false)
+    // Grupo do WhatsApp nunca aparece no seletor da agenda (migration 0394).
+    .eq("is_group", false)
     .order("display_name", { nullsFirst: false })
     .order("name")
     .limit(30);

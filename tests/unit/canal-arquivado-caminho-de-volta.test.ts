@@ -473,7 +473,9 @@ describe("POST /api/v1/channel-sessions/[id]/reconnect — canal excluído não 
 
     expect(res.status).toBe(200);
     expect(waha.stopSession).toHaveBeenCalledWith(NOME_SESSAO);
-    expect(waha.startSession).toHaveBeenCalledWith(NOME_SESSAO);
+    // `mostrar_grupos` não está na linha mockada (`lerMostrarGrupos` cai no
+    // `=== true` estrito e devolve false): é o valor real que o handler manda.
+    expect(waha.startSession).toHaveBeenCalledWith(NOME_SESSAO, { mostrarGrupos: false });
     expect(db.linhas[0]?.status).toBe("STARTING");
   });
 
@@ -485,7 +487,7 @@ describe("POST /api/v1/channel-sessions/[id]/reconnect — canal excluído não 
     const res = await POST(req(), ctx());
 
     expect(res.status).toBe(200);
-    expect(waha.startSession).toHaveBeenCalledWith(NOME_SESSAO);
+    expect(waha.startSession).toHaveBeenCalledWith(NOME_SESSAO, { mostrarGrupos: false });
   });
 
   /**
@@ -531,7 +533,7 @@ describe("POST /api/v1/channel-sessions/[id]/reconnect — canal excluído não 
     expect(novo).not.toBe(NOME_LONGO);
     expect(novo.length).toBeLessThanOrEqual(54);
     expect(waha.stopSession).toHaveBeenCalledWith(novo);
-    expect(waha.startSession).toHaveBeenCalledWith(novo);
+    expect(waha.startSession).toHaveBeenCalledWith(novo, { mostrarGrupos: false });
     expect(waha.stopSession).not.toHaveBeenCalledWith(NOME_LONGO);
   });
 

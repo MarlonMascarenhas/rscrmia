@@ -136,6 +136,37 @@ describe("MessageBubble — rótulo de origem", () => {
   });
 });
 
+describe("MessageBubble — autor num grupo do WhatsApp", () => {
+  it("bolha inbound com metadata.autor mostra quem falou", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "inbound",
+          metadata: { autor: { chat_id: "x@c.us", telefone: "+5511988888888", nome: "Maria" } },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("autor-do-grupo")).toHaveTextContent("Maria");
+  });
+
+  it("bolha outbound nunca mostra o autor do grupo, mesmo com metadata.autor", () => {
+    render(
+      <MessageBubble
+        message={msg({
+          direction: "outbound",
+          metadata: { autor: { chat_id: "x@c.us", telefone: "+5511988888888", nome: "Maria" } },
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("autor-do-grupo")).not.toBeInTheDocument();
+  });
+
+  it("conversa 1:1 (sem metadata.autor) não mostra selo de autor", () => {
+    render(<MessageBubble message={msg({ direction: "inbound" })} />);
+    expect(screen.queryByTestId("autor-do-grupo")).not.toBeInTheDocument();
+  });
+});
+
 describe("MessageBubble — contenção de layout e quebra de palavras (#1451)", () => {
   it("texto longo sem espaços (ex: chave Pix) tem quebra forçada wrap-anywhere e bolha tem min-w-0", () => {
     const pixLongo =

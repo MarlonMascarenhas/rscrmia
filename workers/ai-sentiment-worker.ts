@@ -114,6 +114,29 @@ export async function processSentiment(event: EventRow): Promise<SentimentResult
       return { skipped: true, reason: "not_inbound" };
     }
 
+    // ── Guard: conversa de GRUPO não gasta classificação paga ────────────
+    // Push e automações continuam valendo para grupo (decisão do dono); a
+    // trava é só neste caminho, que dispara uma chamada de LLM por mensagem.
+    // Erro de leitura não bloqueia: segue classificando, como o resto do
+    // worker faz (fail-open fora do gate de elegibilidade).
+    {
+      const { data: conversaGrupo, error: grupoErr } = await admin
+        .from("conversations")
+        .select("is_group")
+        .eq("id", message.conversation_id)
+        .eq("organization_id", event.organization_id)
+        .maybeSingle();
+      if (grupoErr) {
+        console.warn("[ai-sentiment-worker] leitura de is_group falhou", {
+          organization_id: event.organization_id,
+          conversation_id: message.conversation_id,
+          causa: grupoErr.message,
+        });
+      } else if (conversaGrupo?.is_group === true) {
+        return { skipped: true, reason: "group_conversation" };
+      }
+    }
+
     // ── Guard: non-empty body ─────────────────────────────────────────────
     const body = (message.body ?? "").trim();
     if (!body) {

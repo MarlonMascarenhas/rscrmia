@@ -225,6 +225,10 @@ export async function listConversationsHandler(
   // barreira. Consulta nova só para os não lidos nasceria sem barreira nenhuma.
   if (q.unread) query = query.gt("unread_count_for_assignee", 0);
 
+  // Ausente = 1:1 e grupos juntos, como sempre foi.
+  if (q.groups === "only") query = query.eq("is_group", true);
+  else if (q.groups === "exclude") query = query.eq("is_group", false);
+
   if (q.assigned_to === "me") {
     if (ctx.actor.type !== "user") {
       throw new ApiError(

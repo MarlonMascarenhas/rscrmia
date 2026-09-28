@@ -1899,7 +1899,12 @@ export function chunkText(text: string, max = 4000): string[] {
 
 ### 11.6 Grupos (W-09)
 
-`is_group=true` na conversation; lead/activity NÃO são criados (`if (!isGroup) await insertLeadActivity(...)` em §6.2).
+Por padrão, grupo é descartado (`is_group=true` na conversation não chega a existir). Desde a
+migration 0394, uma conexão pode ligar `channel_sessions.mostrar_grupos`: aí o grupo entra
+como um contato próprio (`contacts.is_group=true`, via `fn_upsert_wa_grupo`) e a conversa
+aparece na caixa de entrada. Em nenhum dos dois casos lead/activity são criados — grupo nunca
+vira lead nem é fundido com contato (travas em banco); sem dono, fica em "aguardando" e não
+entra no rodízio.
 
 ### 11.7 Mensagem fora de ordem (W8)
 

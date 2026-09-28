@@ -36,6 +36,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { assertWahaConnectionIdle, ChannelConnectionError, renomearSessaoParaOTeto } from "@/lib/channels/connect-waha";
+import { lerMostrarGrupos } from "@/lib/channels/grupos";
 import { nomeDaSessaoCabeNoWaha, podeRenomearSessaoDoWaha } from "@/lib/channels/nome-da-sessao";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mfaEmDivida } from "@/lib/auth/server";
@@ -170,7 +171,8 @@ export async function POST(
     // Só no modo forçado: descartar a credencial é irreversível — obriga a
     // reescanear o QR mesmo que ela ainda estivesse boa.
     if (force) await waha.logoutSession(nomeParaOTransporte);
-    const remote = (await waha.startSession(nomeParaOTransporte)) as { status?: string };
+    const mostrarGrupos = await lerMostrarGrupos(supabase, activeOrg.orgId, id);
+    const remote = (await waha.startSession(nomeParaOTransporte, { mostrarGrupos })) as { status?: string };
     const nextStatus = remote.status ?? "STARTING";
     const patch = { status: nextStatus, status_reason: null, last_status_change_at: new Date().toISOString(), consecutive_health_fails: 0 };
     const { error: syncError } = await supabase.from("channel_sessions").update(patch).eq("organization_id", activeOrg.orgId).eq("id", id);

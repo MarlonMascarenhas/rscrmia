@@ -68,6 +68,8 @@ export async function buscarCandidatos(
     .eq("organization_id", organizationId)
     // Cadastro mesclado é fantasma: quem responde é o sobrevivente.
     .is("is_merged_into", null)
+    // Grupo do WhatsApp nunca é público de campanha (migration 0394).
+    .eq("is_group", false)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true })
     .limit(filtro.limite);
@@ -112,6 +114,8 @@ export async function buscarCandidatos(
       .from("contacts")
       .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent")
       .eq("organization_id", organizationId)
+      // Grupo do WhatsApp nunca é público de campanha, nem incluído à mão.
+      .eq("is_group", false)
       .in("id", faltam);
     if (erroExtras) throw new Error(`audiência: incluídos — ${erroExtras.message}`);
     linhas.push(...((extras ?? []) as LinhaDeContato[]));

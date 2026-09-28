@@ -26,6 +26,8 @@ export interface FiltrosDaContagem {
   unread?: boolean;
   tag?: string;
   channel_session_id?: string;
+  /** `only` = só grupos; `exclude` = só 1:1. Ausente = os dois juntos. */
+  groups?: "only" | "exclude";
 }
 
 /**
@@ -40,6 +42,7 @@ export function useConversationCounts(
   if (filtros.unread) qs.set("unread", "true");
   if (filtros.tag) qs.set("tag", filtros.tag);
   if (filtros.channel_session_id) qs.set("channel_session_id", filtros.channel_session_id);
+  if (filtros.groups) qs.set("groups", filtros.groups);
   const sufixo = qs.toString();
 
   return useQuery({

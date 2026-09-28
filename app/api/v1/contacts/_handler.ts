@@ -118,6 +118,9 @@ export async function listContactsHandler(
     // coluna só era escrita por uma data migration de mão única, e por isso
     // ninguém tinha esbarrado nisto.
     .is("is_merged_into", null)
+    // Grupo do WhatsApp nunca é uma pessoa da base (migration 0394): fora de
+    // toda listagem/busca de contatos.
+    .eq("is_group", false)
     .order(sortCol, { ascending: asc, nullsFirst: false })
     .order("id", { ascending: asc })
     .limit(q.limit + 1);

@@ -22,6 +22,7 @@ import { usePacingKnobs } from "@/hooks/channels/usePacingKnobs";
 import { AntiBanSheet } from "./AntiBanSheet";
 import { PairingOptions } from "./PairingOptions";
 import { ChannelAiAccess } from "./ChannelAiAccess";
+import { ChannelGroupsToggle } from "./ChannelGroupsToggle";
 import { ParaIntegrar } from "./ParaIntegrar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -449,6 +450,9 @@ export function ConnectionsClient({ wahaConfigured }: { wahaConfigured: boolean 
                     <Trash size={14} aria-hidden />
                   </Button>
                 </div>
+                {vivaNoTransporte && (
+                  <ChannelGroupsToggle channelId={c.id} mostrarGrupos={c.mostrar_grupos === true} />
+                )}
               </Card>
             );
           })}

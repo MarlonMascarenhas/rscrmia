@@ -614,7 +614,7 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
   const { data: conv, error: convErr } = await admin
     .from("conversations")
     .select(
-      "id, organization_id, contact_id, channel_session_id, last_inbound_at, bot_silenced_until, last_handoff_at, assignee_kind, contacts:contact_id(id, name, display_name, locale, is_blocked, force_human)",
+      "id, organization_id, contact_id, channel_session_id, last_inbound_at, bot_silenced_until, last_handoff_at, assignee_kind, is_group, contacts:contact_id(id, name, display_name, locale, is_blocked, force_human)",
     )
     .eq("id", input.conversationId)
     .eq("organization_id", input.organizationId)
@@ -632,6 +632,7 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
     bot_silenced_until: string | null;
     last_handoff_at: string | null;
     assignee_kind: string | null;
+    is_group: boolean;
     contacts: {
       id: string;
       name: string | null;
@@ -642,6 +643,9 @@ async function buildContext(input: BuildContextInput): Promise<GuardDecision> {
     } | null;
   };
   const c = conv as unknown as ConvRow;
+  // Conversa de GRUPO nunca aciona a IA (gasto pago) — push e automações
+  // continuam valendo, essa trava é só neste caminho.
+  if (c.is_group) return skip("group_conversation");
   if (!c.contacts) return skip("conversation_not_found", "contact join missing");
   if (c.contacts.is_blocked) return skip("contact_blocked");
   if (c.contacts.force_human) return skip("force_human");

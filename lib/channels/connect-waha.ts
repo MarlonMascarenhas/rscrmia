@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { audit } from "@/lib/audit";
+import { lerMostrarGrupos } from "@/lib/channels/grupos";
 import {
   TETO_NOME_DE_SESSAO_WAHA, nomeDaSessaoCabeNoWaha, nomeDaSessaoNovo, podeRenomearSessaoDoWaha,
 } from "@/lib/channels/nome-da-sessao";
@@ -85,7 +86,8 @@ export async function connectWahaChannel(authDb: SupabaseClient, serviceDb: Supa
   }
   try {
     if (input.restart) await waha.stopSession(channel.waha_session_name);
-    const creation = await waha.createSession(channel.waha_session_name);
+    const mostrarGrupos = await lerMostrarGrupos(serviceDb, input.organizationId, channel.id);
+    const creation = await waha.createSession(channel.waha_session_name, { mostrarGrupos });
     created = creation.created;
     if (created) await finish("remote_created");
     const remote = await waha.startExistingSession(channel.waha_session_name);

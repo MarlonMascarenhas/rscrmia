@@ -25,6 +25,11 @@ type Linha = Record<string, unknown>;
  * Aplica `eq`, `neq` (com `{}` = lista vazia), `order` e `limit`: um dublê que
  * os ignorasse vazaria a outra organização — e, no caso de `order`/`limit`,
  * deixaria passar uma rota que lê a tabela INTEIRA de contatos.
+ *
+ * `is_group` é `not null default false` no banco (migration 0394): a fixture
+ * que não declara a coluna representa o contato comum, então `eq("is_group",
+ * false)` casa com ela — só uma linha que declara `is_group: true` de propósito
+ * fica de fora.
  */
 function bancoFalso(linhas: Linha[], erro: { message: string } | null = null) {
   const from = () => {
@@ -32,7 +37,9 @@ function bancoFalso(linhas: Linha[], erro: { message: string } | null = null) {
     let limite = Infinity;
     const chain = {
       select: () => chain,
-      eq: (col: string, val: unknown) => ((rows = rows.filter((l) => l[col] === val)), chain),
+      eq: (col: string, val: unknown) => (
+        (rows = rows.filter((l) => (col === "is_group" ? (l[col] ?? false) : l[col]) === val)), chain
+      ),
       neq: (col: string, val: unknown) => {
         rows = rows.filter((l) => (val === "{}" ? (l[col] as unknown[]).length > 0 : l[col] !== val));
         return chain;
@@ -79,6 +86,20 @@ describe("GET /api/v1/contact-tags", () => {
 
     expect(status).toBe(200);
     expect(body.data).toEqual(["google", "vip"]);
+  });
+
+  // Grupo do WhatsApp nunca alimenta o vocabulário de tags (migration 0394):
+  // a tag exclusiva do grupo não pode aparecer na sugestão do editor.
+  it("grupo do WhatsApp não entra na sugestão de tags", async () => {
+    vi.mocked(createClient).mockResolvedValue(bancoFalso([
+      { organization_id: ORG, tags: ["vip"] },
+      { organization_id: ORG, tags: ["so-do-grupo"], is_group: true },
+    ]));
+
+    const { status, body } = await chamaRota();
+
+    expect(status).toBe(200);
+    expect(body.data).toEqual(["vip"]);
   });
 
   /**

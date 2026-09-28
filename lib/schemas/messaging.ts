@@ -329,6 +329,11 @@ export const listConversationsQuerySchema = z.object({
    */
   unread: z.coerce.boolean().optional(),
   /**
+   * `only` = só grupos (`is_group=true`); `exclude` = só 1:1 (`is_group=false`).
+   * Ausente = conversas 1:1 e grupos juntos.
+   */
+  groups: z.enum(["only", "exclude"]).optional(),
+  /**
    * O termo de busca. A régua inteira vive em `lib/inbox/termo-de-busca.ts`, e a
    * tela lê a MESMA — repetir aqui faria os dois divergirem, e a divergência
    * apareceria como erro na cara de quem digita (a rota recusa e o hook mostra).

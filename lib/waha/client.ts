@@ -39,9 +39,10 @@ import { classificarFalhaDeAlcance, explicarFalhaDeAlcance } from "@/lib/net/alc
  * ─── Grupos entram na lista, e isso não muda o produto ──────────────────────
  *
  * O CLAUDE.md manda pular o vínculo de CRM quando o chat termina em `@g.us`.
- * Já hoje nenhuma mensagem de grupo vira conversa, contato ou lead: o
- * comportamento visível é idêntico com ou sem esta linha. O que muda é parar
- * de pagar por elas. Quem um dia quiser grupos inverte a chave.
+ * O padrão continua ignorando grupos, mas agora é a CONEXÃO quem decide:
+ * `channel_sessions.mostrar_grupos` (migration 0394) liga a chave por canal.
+ * Quem não a liga tem o comportamento de sempre. Quem liga passa a pagar (e a
+ * receber) o que decidiu ver.
  */
 export const CONVERSAS_IGNORADAS = {
   /** Os "estados" que os contatos publicam. Sozinhos eram 69% do arquivo. */
@@ -53,6 +54,20 @@ export const CONVERSAS_IGNORADAS = {
   /** Ver o parágrafo acima: o CRM já os descarta na entrada. */
   groups: true,
 } as const;
+
+/** Preferência por conexão: liga/desliga a única chave que não é fixa. */
+export interface OpcoesDeGrupos {
+  mostrarGrupos?: boolean;
+}
+
+/**
+ * A chave `groups` é preferência da conexão (`channel_sessions.mostrar_grupos`,
+ * migration 0394), não parte fixa do filtro — as outras três continuam sempre
+ * ligadas.
+ */
+export function conversasIgnoradas(mostrarGrupos: boolean) {
+  return { ...CONVERSAS_IGNORADAS, groups: !mostrarGrupos };
+}
 
 /**
  * Teto de relógio das chamadas ao WAHA.
@@ -235,16 +250,23 @@ export class WahaClient {
     const ignore = session.config.ignore;
     if (ignore === undefined) return true; // sessão legada; convergência preserva webhooks
     if (!ignore || typeof ignore !== "object" || Array.isArray(ignore)) return false;
-    return Object.entries(CONVERSAS_IGNORADAS).every(([key, value]) =>
-      !(key in ignore) || (ignore as Record<string, unknown>)[key] === value);
+    // `groups` é preferência da conexão, não compatibilidade: uma sessão com
+    // grupos ligados não pode fazer `createSession`/`startExistingSession`
+    // lançarem.
+    return Object.entries(CONVERSAS_IGNORADAS)
+      .filter(([key]) => key !== "groups")
+      .every(([key, value]) => !(key in ignore) || (ignore as Record<string, unknown>)[key] === value);
   }
 
   /** Porta granular para a futura reserva: created nunca significa ownership. */
-  async createSession(name: string): Promise<{ created: boolean; session: WahaSessionSnapshot }> {
+  async createSession(
+    name: string,
+    opts: OpcoesDeGrupos = {},
+  ): Promise<{ created: boolean; session: WahaSessionSnapshot }> {
     const res = await this.fetchComTeto(`${this.baseUrl}/api/sessions`, {
       method: "POST",
       headers: { "X-Api-Key": this.apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ name, start: false, config: { ignore: CONVERSAS_IGNORADAS } }),
+      body: JSON.stringify({ name, start: false, config: { ignore: conversasIgnoradas(opts.mostrarGrupos ?? false) } }),
     });
     if (!res.ok && !knownSessionConflict(await res.json().catch(() => null), res.status, "create", name)) {
       throw new WahaSessionError("create", res.status);
@@ -257,12 +279,13 @@ export class WahaClient {
   }
 
   /** Compatível com os callers: cria se necessário e inicia, confirmando GET. */
-  async startSession(name: string): Promise<{ qr?: string; status: string }> {
-    const creation = await this.createSession(name);
+  async startSession(name: string, opts: OpcoesDeGrupos = {}): Promise<{ qr?: string; status: string }> {
+    const esperado = conversasIgnoradas(opts.mostrarGrupos ?? false);
+    const creation = await this.createSession(name, opts);
     const ignore = creation.session.config?.ignore;
-    const filtersCurrent = ignore && typeof ignore === "object" && Object.entries(CONVERSAS_IGNORADAS)
+    const filtersCurrent = ignore && typeof ignore === "object" && Object.entries(esperado)
       .every(([key, value]) => (ignore as Record<string, unknown>)[key] === value);
-    if (!creation.created && !filtersCurrent) await this.convergirConfigDaSessao(name);
+    if (!creation.created && !filtersCurrent) await this.convergirConfigDaSessao(name, opts);
     return this.startExistingSession(name);
   }
 
@@ -340,7 +363,11 @@ export class WahaClient {
    * que não conheça a rota faria toda reconexão falhar por causa de uma
    * economia — trocar mensagem por byte é o negócio errado.
    */
-  async convergirConfigDaSessao(name: string): Promise<void> {
+  async convergirConfigDaSessao(
+    name: string,
+    opts: OpcoesDeGrupos = {},
+  ): Promise<"ja_convergida" | "aplicada" | "nao_aplicada"> {
+    const esperado = conversasIgnoradas(opts.mostrarGrupos ?? false);
     const url = `${this.baseUrl}/api/sessions/${encodeURIComponent(name)}`;
     try {
       const atual = await this.fetchComTeto(url, { headers: { "X-Api-Key": this.apiKey } });
@@ -348,17 +375,17 @@ export class WahaClient {
         logger.warn("[waha] não li a config da sessão; não vou reescrevê-la", {
           status: atual.status,
         });
-        return;
+        return "nao_aplicada";
       }
       const parsed = sessionSnapshotSchema.safeParse(await atual.json().catch(() => null));
       if (!parsed.success || parsed.data.name !== name || !(await this.compatibleSession(parsed.data))) {
         logger.warn("[waha] a sessão respondeu sem identidade/config compatíveis; não vou reescrevê-la", {});
-        return;
+        return "nao_aplicada";
       }
       const sessao = parsed.data;
-      if (!sessao.config) return;
+      if (!sessao.config) return "nao_aplicada";
 
-      const config = { ...sessao.config, ignore: CONVERSAS_IGNORADAS };
+      const config = { ...sessao.config, ignore: esperado };
       // Já está como queremos: não reiniciar a sessão à toa. Este caminho roda
       // em TODA reconexão, e um restart desnecessário por rodada seria pior que
       // o gasto que ele evita.
@@ -369,10 +396,10 @@ export class WahaClient {
       const jaConvergida =
         typeof sessao.config.ignore === "object" &&
         sessao.config.ignore !== null &&
-        Object.entries(CONVERSAS_IGNORADAS).every(
+        Object.entries(esperado).every(
           ([k, v]) => (sessao.config!.ignore as Record<string, unknown>)[k] === v,
         );
-      if (jaConvergida) return;
+      if (jaConvergida) return "ja_convergida";
 
       const res = await this.fetchComTeto(url, {
         method: "PUT",
@@ -381,7 +408,9 @@ export class WahaClient {
       });
       if (!res.ok) {
         logger.warn("[waha] não consegui convergir a config da sessão", { status: res.status });
+        return "nao_aplicada";
       }
+      return "aplicada";
     } catch (err) {
       // Rede fora aqui não é assunto de quem só quer iniciar a sessão — a
       // convergência é oportunista e a sessão sobe do mesmo jeito. Mas os
@@ -391,6 +420,7 @@ export class WahaClient {
       logger.warn("[waha] não consegui falar com o WAHA para convergir a config", {
         erro: err instanceof Error ? err.message : "unknown",
       });
+      return "nao_aplicada";
     }
   }
 

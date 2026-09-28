@@ -228,6 +228,11 @@ export const AUDIT_ACTIONS = [
   "channel.social_configured",
   "channel.ai_access_updated",
   "channel.reconnected",
+  // Ligar/desligar se os grupos deste número aparecem no CRM
+  // (`channel_sessions.mostrar_grupos`, migration 0394). Auditável porque muda
+  // o que o transporte entrega — e o `metadata.waha` diz se a convergência com
+  // o WAHA de fato aplicou.
+  "channel.groups_visibility_updated",
   // Duas ações distintas de propósito: `deleted` apagou a linha (canal virgem),
   // `archived` só a escondeu porque conversas/mensagens ainda a referenciam.
   // A auditoria precisa distinguir o que sumiu do que continua no banco.

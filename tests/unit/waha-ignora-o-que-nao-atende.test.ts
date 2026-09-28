@@ -144,3 +144,57 @@ describe("sessão que JÁ existe é corrigida — sem levar a config junto", () 
     await expect(new WahaClient("http://w", "k").startSession("s1")).resolves.toBeTruthy();
   });
 });
+
+describe("mostrarGrupos: preferência da conexão vira `ignore.groups`", () => {
+  /** Mesmo duble de "sessão que JÁ existe": POST /api/sessions responde 422. */
+  function comSessaoExistente(configAtual: unknown) {
+    const vistos: { metodo: string; corpo: unknown }[] = [];
+    globalThis.fetch = vi.fn(async (url: unknown, init?: unknown) => {
+      const u = String(url);
+      const i2 = (init ?? {}) as { method?: string; body?: string };
+      const m = i2.method ?? "GET";
+      vistos.push({ metodo: m, corpo: i2.body ? JSON.parse(i2.body) : null });
+      if (m === "POST" && u.endsWith("/api/sessions")) {
+        return { ok: false, status: 422, json: async () => ({ statusCode: 422, error: "Unprocessable Entity", message: "Session 's1' already exists. Use PUT to update it." }), text: async (): Promise<string> => "" };
+      }
+      if (m === "GET") {
+        return { ok: true, status: 200, json: async () => ({ name: "s1", status: "WORKING", engine: { engine: "NOWEB" }, config: configAtual }), text: async (): Promise<string> => "" };
+      }
+      return { ok: true, status: 200, json: async () => ({ status: "WORKING" }), text: async (): Promise<string> => "" };
+    }) as unknown as typeof fetch;
+    return vistos;
+  }
+
+  const WEBHOOKS = [{ url: "https://crm/webhook", events: ["message.any"] }];
+
+  it("createSession com mostrarGrupos:true manda groups:false", async () => {
+    espionar({});
+    await new WahaClient("http://w", "k").createSession("s1", { mostrarGrupos: true });
+    const criacao = chamadas.find((c) => c.url.endsWith("/api/sessions") && c.metodo === "POST");
+    expect((criacao?.corpo as { config?: { ignore?: unknown } })?.config?.ignore).toEqual({
+      status: true, broadcast: true, channels: true, groups: false,
+    });
+  });
+
+  it("convergência com mostrarGrupos:true sobre sessão com groups:true faz PUT com groups:false e preserva webhooks", async () => {
+    const vistos = comSessaoExistente({ webhooks: WEBHOOKS, ignore: { ...CONVERSAS_IGNORADAS, groups: true } });
+    const resultado = await new WahaClient("http://w", "k").convergirConfigDaSessao("s1", { mostrarGrupos: true });
+    const put = vistos.find((v) => v.metodo === "PUT");
+    const cfg = (put?.corpo as { config?: Record<string, unknown> })?.config;
+    expect(cfg?.webhooks, "o PUT apagou os webhooks da sessão").toEqual(WEBHOOKS);
+    expect((cfg?.ignore as Record<string, unknown> | undefined)?.groups).toBe(false);
+    expect(resultado).toBe("aplicada");
+  });
+
+  it("sessão já convergida com mostrarGrupos:true devolve ja_convergida, sem PUT", async () => {
+    const vistos = comSessaoExistente({ webhooks: WEBHOOKS, ignore: { ...CONVERSAS_IGNORADAS, groups: false } });
+    const resultado = await new WahaClient("http://w", "k").convergirConfigDaSessao("s1", { mostrarGrupos: true });
+    expect(vistos.some((v) => v.metodo === "PUT"), "reiniciou a sessão à toa").toBe(false);
+    expect(resultado).toBe("ja_convergida");
+  });
+
+  it("startSession padrão sobre sessão existente com groups:false não lança", async () => {
+    comSessaoExistente({ webhooks: WEBHOOKS, ignore: { ...CONVERSAS_IGNORADAS, groups: false } });
+    await expect(new WahaClient("http://w", "k").startSession("s1")).resolves.toBeTruthy();
+  });
+});

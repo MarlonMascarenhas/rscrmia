@@ -3722,6 +3722,7 @@ export type Database = {
           meta_webhook_override_erro: string | null
           meta_webhook_override_uri: string | null
           metadata: Json
+          mostrar_grupos: boolean
           organization_id: string
           phone_number: string | null
           provider: string
@@ -3758,6 +3759,7 @@ export type Database = {
           meta_webhook_override_erro?: string | null
           meta_webhook_override_uri?: string | null
           metadata?: Json
+          mostrar_grupos?: boolean
           organization_id: string
           phone_number?: string | null
           provider?: string
@@ -3794,6 +3796,7 @@ export type Database = {
           meta_webhook_override_erro?: string | null
           meta_webhook_override_uri?: string | null
           metadata?: Json
+          mostrar_grupos?: boolean
           organization_id?: string
           phone_number?: string | null
           provider?: string
@@ -3944,6 +3947,7 @@ export type Database = {
           id: string
           is_anonymized: boolean
           is_blocked: boolean
+          is_group: boolean
           is_merged_into: string | null
           last_activity_at: string | null
           locale: string | null
@@ -3985,6 +3989,7 @@ export type Database = {
           id?: string
           is_anonymized?: boolean
           is_blocked?: boolean
+          is_group?: boolean
           is_merged_into?: string | null
           last_activity_at?: string | null
           locale?: string | null
@@ -4026,6 +4031,7 @@ export type Database = {
           id?: string
           is_anonymized?: boolean
           is_blocked?: boolean
+          is_group?: boolean
           is_merged_into?: string | null
           last_activity_at?: string | null
           locale?: string | null
@@ -9515,6 +9521,16 @@ export type Database = {
       fn_upsert_wa_conversation: {
         Args: { p_contact: string; p_org: string; p_session: string }
         Returns: string
+      }
+      fn_upsert_wa_grupo: {
+        Args: {
+          p_group_chat_id: string
+          p_nome: string | null
+          p_org: string
+          p_reabrir: boolean
+          p_session: string
+        }
+        Returns: Json
       }
       fn_user_org_ids: { Args: never; Returns: string[] }
       fn_user_role_in: { Args: { p_org: string }; Returns: number }

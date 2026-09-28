@@ -66,6 +66,11 @@ const DESFECHOS: Record<string, { code: string; status: number; message: string 
     message:
       "Um dos contatos selecionados não está disponível — ele pode ter sido anonimizado ou já mesclado em outro.",
   },
+  contato_grupo_nao_mescla: {
+    code: "validation_failed",
+    status: 422,
+    message: "Grupo do WhatsApp não pode ser juntado a outro contato.",
+  },
 };
 
 interface ResultadoDaFusao {

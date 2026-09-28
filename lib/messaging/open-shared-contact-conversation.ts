@@ -46,6 +46,8 @@ async function resolveContactId(
       .select("id")
       .eq("organization_id", orgId)
       .eq("id", input.contact_id)
+      // Grupo do WhatsApp nunca é destino de "abrir conversa com contato compartilhado" (migration 0394).
+      .eq("is_group", false)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) throw new Error("contact_not_found");

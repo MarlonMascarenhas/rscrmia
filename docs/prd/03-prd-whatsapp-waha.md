@@ -118,14 +118,14 @@ A janela de 24h da Meta (envio proativo só com template aprovado fora da janela
   9. Responder 200
 - **Trigger Postgres NUNCA faz HTTP** (regra herdada): toda integração externa passa por worker que lê `event_log`
 - Ordenação por `sent_at` (vinda do payload WAHA), **não** por `created_at` do DB — mensagens podem chegar fora de ordem (vide Riscos §7)
-- Mensagens em **grupos** (`chatId.endsWith('@g.us')`) são persistidas mas **NÃO** disparam binding de lead/deal (evita "deal infinito" em grupos)
+- Mensagens em **grupos** (`chatId.endsWith('@g.us')`) são descartadas na entrada por padrão; com `channel_sessions.mostrar_grupos` ligado por canal, são persistidas numa conversa com `conversations.is_group=true` — em nenhum dos dois casos disparam binding de lead/deal (evita "deal infinito" em grupos)
 
 **ACs principais.**
 - Webhook com HMAC inválido retorna 401 e nada é gravado em `webhook_events_log`
 - Webhook com HMAC válido grava raw em `webhook_events_log` mesmo se o parse falhar depois
 - Mensagem com `external_id` já existente retorna 200 sem inserir duplicata (idempotência)
 - Mensagem inbound de telefone novo cria contact + conversation + message + activity em <2s p95
-- Mensagem em grupo (`@g.us`) é gravada em `messages` com `is_group=true`, sem criar/atualizar lead
+- Mensagem em grupo (`@g.us`) é descartada por padrão (WAHA nem entrega, via `ignore.groups`); com `mostrar_grupos` ligado no canal, é gravada em `messages` numa conversa com `conversations.is_group=true`, sem criar/atualizar lead
 - Carga de 100 webhooks/s sustentada por 1min sem perda nem duplicação
 
 ### 3.4 Envio de mensagens (outbound)
@@ -354,7 +354,7 @@ O canal WhatsApp é considerado **MVP-completo** quando:
 10. ✅ Mensagem enviada pelo celular do gerente (fora do CRM) aparece na thread via `message.any` em <2s, sem duplicar
 11. ✅ Cron `sync-sessions` detecta sessão derrubada manualmente em <2min e atualiza status no DB
 12. ✅ Cron `recover-stuck-messages` marca mensagens `sending` há >5min como `failed`
-13. ✅ Mensagem em grupo (`@g.us`) é gravada mas NÃO cria/atualiza lead (sem "deal infinito")
+13. ✅ Mensagem em grupo (`@g.us`) é descartada por padrão, ou gravada (se `mostrar_grupos` ligado no canal) sem criar/atualizar lead (sem "deal infinito")
 14. ✅ Audit log captura: criação/deleção de sessão, mudança de status, STOP detection, criação de campanha
 15. ✅ Runbook de troca-de-número (banimento) documentado e validado em dry-run
 
@@ -404,7 +404,7 @@ O canal WhatsApp é considerado **MVP-completo** quando:
 | W8 | **Mensagem fora de ordem** (webhook chega depois de mensagem mais nova) | Médio | Ordenar timeline por `sent_at` (do payload), não `created_at` do DB; UI re-renderiza ao receber out-of-order |
 | W9 | **Mídia >50MB inviável** (WhatsApp aceita até 100MB pra alguns tipos, mas WAHA pode falhar) | Médio | UI rejeita >16MB no outbound (limite WhatsApp para a maioria dos tipos); inbound >50MB usa S3 do WAHA Plus ou stream em chunks; fallback de download |
 | W10 | **Áudio OGG inbound não toca em Safari** | Baixo | Re-encode server-side pra MP4/AAC OU `<audio preload="none">` com download fallback; documentado na UX |
-| W11 | **"Deal infinito" em grupos** (cada mensagem em grupo cria novo lead) | Médio | SKIP de binding CRM se `chatId.endsWith('@g.us')`; mensagem é gravada mas não vira atividade de lead |
+| W11 | **"Deal infinito" em grupos** (cada mensagem em grupo cria novo lead) | Médio | SKIP de binding CRM se `chatId.endsWith('@g.us')`; mensagem é descartada na entrada por padrão (`ignore.groups`) ou, com `mostrar_grupos` ligado no canal, gravada numa conversa `is_group=true` sem virar atividade de lead |
 | W12 | **Texto >4096 chars** (limite WhatsApp) | Baixo | Chunkar via função antes do envio; preserva ordem; UI mostra "Mensagem dividida em N partes" |
 
 ---

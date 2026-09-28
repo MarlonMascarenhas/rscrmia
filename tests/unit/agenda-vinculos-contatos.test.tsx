@@ -24,6 +24,7 @@ const contato = {
   name: null,
   phone_number: null,
   is_anonymized: false,
+  is_group: false,
 };
 type Linha = Record<string, unknown>;
 let linhas: Linha[];
@@ -113,6 +114,14 @@ describe("contatos da Agenda pelo nome exibido", () => {
     const query = deps.from.mock.results[1]?.value;
     expect(query.eq).toHaveBeenCalledWith("organization_id", "org-a");
     expect(query.eq).toHaveBeenCalledWith("contact_id", ID);
+    expect(query.eq).toHaveBeenCalledWith("is_group", false);
+  });
+  // Grupo do WhatsApp nunca aparece no seletor da agenda (migration 0394) — nos
+  // dois lados: quem procura o contato e quem procura a conversa dele.
+  it("grupo do WhatsApp não entra no seletor: contatos e conversas filtram is_group", async () => {
+    await buscar();
+    const consultaContatos = deps.from.mock.results[0]?.value;
+    expect(consultaContatos.eq).toHaveBeenCalledWith("is_group", false);
   });
   it.each([null, "", "  "])(
     "cadastro antigo com display_name %s continua encontrável por name",

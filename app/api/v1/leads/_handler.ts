@@ -20,6 +20,7 @@ import { RECUSA_DE_TROCA_DE_FUNIL } from "@/lib/leads/clonar-para-funil";
 import { ORIGEM_DA_PLANILHA } from "@/lib/leads/planilha";
 import { registraFalhaDeAtividade } from "@/lib/leads/activity-write-failure";
 import { moedaDaOrganizacao } from "@/lib/catalogo/moeda-da-org";
+import { ehContatoDeGrupo } from "@/lib/contacts/contato-de-grupo";
 import {
   decideMotivoDaPerda,
   recusaDeMotivoDaPerdaPeloBanco,
@@ -331,6 +332,19 @@ export async function createLeadHandler(
   // Sentry) em vez de lançar.
   const currency = input.currency ?? (await moedaDaOrganizacao(supabase, ctx.organization_id));
 
+  // Grupo do WhatsApp nunca vira negócio (migration 0394). O banco já trava
+  // (`fn_contato_grupo_nao_vira_lead`); esta checagem só troca o 500 cru do
+  // trigger por uma recusa de negócio legível.
+  if (input.contact_id && (await ehContatoDeGrupo(supabase, ctx.organization_id, input.contact_id))) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      undefined,
+      ctx.requestId,
+      traduzir("Grupo do WhatsApp não vira negócio.", ctx.idioma ?? "pt-BR"),
+    );
+  }
+
   const serviceOrigin = ctx.serviceOrigin ?? await observeServiceOrigin(createAdminClient(), ctx.organization_id, input.contact_id ?? null);
   const { data: lead, error: insErr } = await supabase
     .from("crm_leads")
@@ -453,6 +467,16 @@ export async function updateLeadHandler(
   if (input.title !== undefined) patch.title = input.title;
   if (input.description !== undefined) patch.description = input.description;
   if (input.contact_id !== undefined) patch.contact_id = input.contact_id;
+  // Grupo do WhatsApp nunca vira negócio (migration 0394) — mesma recusa do create.
+  if (input.contact_id && (await ehContatoDeGrupo(supabase, ctx.organization_id, input.contact_id))) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      undefined,
+      ctx.requestId,
+      traduzir("Grupo do WhatsApp não vira negócio.", ctx.idioma ?? "pt-BR"),
+    );
+  }
   if (input.value_cents !== undefined) patch.value_cents = input.value_cents;
   if (input.currency !== undefined) patch.currency = input.currency;
   // Dono do negócio (0070): regra em lib/leads/owner-patch.ts, compartilhada
