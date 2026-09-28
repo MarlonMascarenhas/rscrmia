@@ -101,6 +101,8 @@ const PASTAS_IGNORADAS = new Set(["api", "node_modules"]);
 const FORA_DO_PRODUTO: Record<string, string> = {
   "app/design": "vitrine do design system: rota noindex, sem porta na navegação",
   "app/vitrine-agenda": "vitrine do kit visual da Agenda: dado de mentira, noindex",
+  "app/page.tsx": "LP de vendas na raiz: vitrine comercial em português para o mercado brasileiro, não é tela do painel — o i18n existe para a interface de quem já é cliente",
+  "app/_lp": "seções e dados da LP de vendas (app/page.tsx): a mesma razão — página comercial em português, sem segunda cópia de marketing em espanhol",
 };
 
 /**

@@ -50,6 +50,8 @@ interface FormaDoLimite {
   readonly rotulo: string;
   /** Como o número é lido por um humano. Entra na frase da recusa. */
   readonly unidade: string;
+  /** A mesma unidade para UM ("1 usuário", nunca "1 usuários"). */
+  readonly unidadeNoSingular: string;
   /**
    * De onde o uso ATUAL é medido. Texto, não função: a medição mora na guarda
    * (que tem banco), e este campo existe para que a tela diga a régua e para que
@@ -61,29 +63,43 @@ interface FormaDoLimite {
   readonly mensal: boolean;
 }
 
+/**
+ * O teto como um cliente o lê: "1 usuário", "5 usuários", "1000 mensagens por mês".
+ * Sem o "por mês", um teto mensal pareceria um total para sempre.
+ */
+export function tetoPorExtenso(limite: LimiteDePlano, valor: number): string {
+  const forma = FORMA_DO_LIMITE[limite];
+  const unidade = valor === 1 ? forma.unidadeNoSingular : forma.unidade;
+  return `${valor} ${unidade}${forma.mensal ? " por mês" : ""}`;
+}
+
 /** `Record` exaustivo: limite sem forma declarada não compila. */
 export const FORMA_DO_LIMITE: Record<LimiteDePlano, FormaDoLimite> = {
   usuarios: {
     rotulo: "Usuários",
     unidade: "usuários",
+    unidadeNoSingular: "usuário",
     medidor: "user_organizations ativos (revoked_at is null)",
     mensal: false,
   },
   conexoes: {
     rotulo: "Conexões de WhatsApp",
     unidade: "conexões",
+    unidadeNoSingular: "conexão",
     medidor: "channel_sessions não arquivadas",
     mensal: false,
   },
   contatos: {
     rotulo: "Contatos",
     unidade: "contatos",
+    unidadeNoSingular: "contato",
     medidor: "contacts não anonimizados",
     mensal: false,
   },
   mensagens_por_mes: {
     rotulo: "Mensagens enviadas por mês",
     unidade: "mensagens",
+    unidadeNoSingular: "mensagem",
     // A régua já existe e é a única que conta envio de verdade.
     medidor: "pacing_ledger do mês corrente",
     mensal: true,
@@ -91,18 +107,21 @@ export const FORMA_DO_LIMITE: Record<LimiteDePlano, FormaDoLimite> = {
   campanhas_por_mes: {
     rotulo: "Campanhas por mês",
     unidade: "campanhas",
+    unidadeNoSingular: "campanha",
     medidor: "campaigns criadas no mês corrente",
     mensal: true,
   },
   tokens_de_api: {
     rotulo: "Tokens de API",
     unidade: "tokens",
+    unidadeNoSingular: "token",
     medidor: "api_tokens não revogados",
     mensal: false,
   },
   agentes: {
     rotulo: "Agentes de IA",
     unidade: "agentes",
+    unidadeNoSingular: "agente",
     medidor: "ai_agents não arquivados",
     mensal: false,
   },

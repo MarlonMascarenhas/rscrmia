@@ -32,7 +32,7 @@ export default async function AdminForbiddenPage() {
         </p>
         <div className="mt-6 flex justify-center gap-2">
           <Button asChild variant="outline">
-            <Link href="/">{traduzir("Início", idioma)}</Link>
+            <Link href="/painel">{traduzir("Início", idioma)}</Link>
           </Button>
           <Button asChild>
             <Link href="/app">{traduzir("Voltar para /app", idioma)}</Link>

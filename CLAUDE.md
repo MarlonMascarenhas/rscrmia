@@ -12,6 +12,88 @@
 
 ---
 
+## Como trabalhar aqui: Opus planeja, Sonnet executa, ninguém inventa
+
+> Vale para **toda** sessão neste repositório. A doutrina técnica abaixo continua sendo a
+> autoridade sobre convenção; esta seção decide **quem faz o quê** e **o que fazer na dúvida**.
+
+**O agente pai é o Opus 5** (a sessão que fala com o usuário; use `/model opus`, ou `opusplan`
+para Opus no plano e Sonnet na execução). Ele planeja, decide, resolve dúvida, revisa e é o único
+que conversa com o usuário. Os demais trabalham para ele.
+
+| Quem | Modelo | Faz | Não faz |
+|---|---|---|---|
+| **Pai** | Opus 5 | Entende o pedido, mede o repo, **escreve o plano**, decide, responde as DÚVIDAS dos filhos, revisa o resultado, pergunta ao usuário | Não gasta o próprio contexto em edição mecânica que um filho faz |
+| **`executor`** | Sonnet | Executa **um plano já fechado**: edita, roda comandos e testes, devolve evidência | Não decide, não amplia escopo, não chuta |
+| **`busca-simples`** | Haiku | Acha, lista, conta e confere (só lê) | Não edita, não opina |
+| `Plan` / `Explore` | herdado / Haiku | Desenho de plano complexo / varredura ampla | — |
+
+### 1. O plano é do Opus, e o plano vem ANTES do código
+
+Todo trabalho que não seja trivial começa por um plano escrito pelo pai: o que muda, em quais
+arquivos, o critério de aceite verificável e **o que NÃO mudar**. Não delegue "resolva isto": delegue
+"faça exatamente isto, aceito quando aquilo". Trabalho de **segurança, schema, RLS, RBAC, dinheiro
+ou LGPD** só é delegado com o plano fechado pelo pai; o pai revisa o diff antes de aceitar.
+
+### 2. O briefing de um filho tem quatro campos
+
+1. **Objetivo** (uma frase). 2. **Arquivos** que pode tocar. 3. **Critério de aceite** com o comando
+que o prova. 4. **O que NÃO fazer.** Ao chamar `Agent`, passe **`model` explícito** (`sonnet` para
+executar, `haiku` para busca) — não deixe herdar o Opus para uma tarefa simples.
+
+Delegue tarefa **simples, mecânica, independente ou paralelizável** (renomear, mover, replicar um
+padrão em N arquivos, escrever um teste com o caso já descrito, achar usos). Faça **no pai** o que é
+pequeno demais para valer um briefing, ou o que depende de julgamento.
+
+### 3. NINGUÉM INVENTA — a regra que não tem exceção
+
+Vale para o pai **e** para todo filho. É proibido escrever como se existisse algo que não foi
+**visto**: nome de arquivo, função, coluna, tabela, rota, variável de ambiente, chave, valor, regra de
+negócio, número de linha, versão. Antes de usar um nome, confirme por leitura ou `grep`. Não achou →
+**não existe → é uma dúvida**, não um convite a criar.
+
+Frases proibidas como base de decisão: "provavelmente", "deve ser", "acho que", "por convenção",
+"normalmente". Se a frase começa assim, pare.
+
+Isto inclui o que se **afirma ao usuário**: número, estado ("está pronto", "passou") e causa só saem
+com a evidência que os sustenta. O que não foi medido é dito como **não medido**.
+
+### 4. Ficou em dúvida? PARE e suba para o pai
+
+Um filho **não pergunta ao usuário e não decide sozinho**. Ele para e devolve, como resposta final:
+
+```
+DÚVIDA
+Pergunta: <uma só>
+O que já verifiquei: <comandos/arquivos e o que viu>
+Opções que enxergo: <A / B, com a consequência de cada>
+O que me impede de decidir: <a lacuna exata>
+Estado do trabalho: <o que já editou e o que NÃO tocou>
+```
+
+**Pare quando:** o briefing e o código discordam; falta um dado que o repositório não tem; há duas
+leituras razoáveis; a mudança sairia do escopo; o aceite não pode ser verificado como descrito; ou algo
+que o briefing dá como existente **não existe**.
+
+**O pai, ao receber uma DÚVIDA:** responde ao filho com `SendMessage` (para ele **continuar com o
+contexto que já tem**, sem recomeçar). Se **ele também** não puder resolver lendo o repositório — decisão
+de produto, preço, marca, regra de negócio, escolha entre caminhos com custo diferente — o pai
+**pergunta ao usuário** (`AskUserQuestion`) e **não escolhe por ele**. Chutar e seguir é a única
+resposta errada.
+
+### 5. "Feito" exige evidência
+
+O filho entrega: o que mudou (arquivo por arquivo), os **comandos que rodou com a saída real**, o que
+**não** conseguiu verificar e qualquer desvio do briefing. O pai não repassa "pronto" ao usuário sem
+ter visto essa evidência — e para UI, sem ter visto a tela (DoD 12 abaixo).
+
+### 6. Custo e hierarquia
+
+Filhos não criam filhos. Paralelize só o que é **independente** (arquivos diferentes, sem ordem entre
+si). Vários filhos no **mesmo arquivo** é conflito garantido: serialize.
+
+---
+
 ## Visão (1 parágrafo)
 
 DeskcommCRM é um sistema operacional de vendas open source com agentes de IA nativos — multi-nicho (e-commerce, clínicas, imobiliárias, infoprodutos, serviços), com WhatsApp como canal primário (via WAHA). Agentes com RAG por tenant atendem, qualificam e movem o funil junto com humanos; CRM inteiro exposto via MCP. Monetização = self-host em VPS (parceria HostGator), não assinatura — **exceto neste fork**, que pode cobrar assinatura por organização, INERTE por padrão: [`docs/adr/0004-cobranca-por-assinatura-neste-fork.md`](docs/adr/0004-cobranca-por-assinatura-neste-fork.md) (leia antes de tratar `lib/planos/` ou o gate de cobrança como bug). Arquitetura multi-tenant com RLS desde o dia 1; LGPD nativa. Posicionamento completo: `VISION.md`.

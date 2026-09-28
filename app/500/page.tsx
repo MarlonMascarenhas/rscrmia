@@ -41,7 +41,7 @@ export default async function InternalErrorPage() {
         </p>
         <div className="mt-6 flex justify-center gap-2">
           <Button asChild>
-            <Link href="/">{traduzir("Voltar", idioma)}</Link>
+            <Link href="/painel">{traduzir("Voltar", idioma)}</Link>
           </Button>
         </div>
       </Card>

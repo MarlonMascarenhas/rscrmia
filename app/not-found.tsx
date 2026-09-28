@@ -28,7 +28,7 @@ export default async function NotFound() {
         </p>
         <div className="mt-6 flex justify-center gap-2">
           <Button asChild variant="outline">
-            <Link href="/">{traduzir("Voltar", idioma)}</Link>
+            <Link href="/painel">{traduzir("Voltar", idioma)}</Link>
           </Button>
           <Button asChild>
             <Link href="/app/inbox">{traduzir("Voltar pra Inbox", idioma)}</Link>

@@ -4,6 +4,9 @@
  */
 export const PUBLIC_PATHS: RegExp[] = [
   /^\/$/,
+  // A porta de entrada do painel: ELA decide (logado → /app, deslogado → /login). Âncorada
+  // sem sub-path de propósito — `/painel/qualquer-coisa` não existe, e não nasce público de carona.
+  /^\/painel$/,
   /^\/login(\/.*)?$/,
   /^\/signup$/,
   /^\/auth\/confirm$/,
