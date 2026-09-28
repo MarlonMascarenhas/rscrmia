@@ -24,6 +24,7 @@ import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
 import { estamparAtribuicaoDoContato } from "@/lib/leads/atribuicao-de-anuncio";
 import { extrairEEstamparAtribuicaoGoogle } from "@/lib/plataformas-de-anuncio/google/atribuicao";
 import { extrairAtribuicaoWaha } from "@/lib/waha/atribuicao-de-anuncio";
+import { atualizarNomeDoGrupo } from "@/lib/waha/nome-do-grupo";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { ackToStatus } from "@/lib/types/messaging";
 import type { WahaEnvelope, WahaPayload } from "@/lib/waha/envelope";
@@ -130,6 +131,8 @@ async function ehEcoDeEnvioNosso(
 interface Session {
   id: string;
   organization_id: string;
+  /** Nome da sessão no WAHA (`channel_sessions.waha_session_name`) — o que a API do transporte espera, distinto do `id` (UUID da nossa linha). */
+  waha_session_name?: string | null;
 }
 
 /**
@@ -839,6 +842,24 @@ async function handleInboundDeGrupo(
   const conversationId = resultado?.conversation_id ?? null;
   if (!contactId || !conversationId) return;
 
+  // Nome real do grupo, por fora do caminho crítico: uma falha aqui não pode
+  // impedir a mensagem de ser gravada.
+  if (session.waha_session_name) {
+    try {
+      await atualizarNomeDoGrupo(admin, {
+        organizationId: session.organization_id,
+        contactId,
+        sessionName: session.waha_session_name,
+        groupChatId: chatId,
+      });
+    } catch (erro) {
+      logger.warn("waha.ingest: atualizarNomeDoGrupo falhou", {
+        organization_id: session.organization_id,
+        detalhe: erro instanceof Error ? erro.message : String(erro),
+      });
+    }
+  }
+
   const now = new Date().toISOString();
   const { data: insertedMessage, error: insertErr } = await admin
     .from("messages")
@@ -1165,6 +1186,24 @@ async function handleOutboundDeGrupo(
   const contactId = resultado?.contact_id ?? null;
   const conversationId = resultado?.conversation_id ?? null;
   if (!contactId || !conversationId) return;
+
+  // Nome real do grupo, por fora do caminho crítico: uma falha aqui não pode
+  // impedir a mensagem de ser gravada.
+  if (session.waha_session_name) {
+    try {
+      await atualizarNomeDoGrupo(admin, {
+        organizationId: session.organization_id,
+        contactId,
+        sessionName: session.waha_session_name,
+        groupChatId: chatId,
+      });
+    } catch (erro) {
+      logger.warn("waha.ingest: atualizarNomeDoGrupo falhou", {
+        organization_id: session.organization_id,
+        detalhe: erro instanceof Error ? erro.message : String(erro),
+      });
+    }
+  }
 
   const now = new Date().toISOString();
   const { data: insertedOutbound, error: insertErr } = await admin

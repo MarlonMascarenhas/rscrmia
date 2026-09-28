@@ -7,11 +7,15 @@ vi.mock("@/lib/channels/pos-entrada", () => ({ aplicarEfeitosPosEntrada: vi.fn()
 vi.mock("@/lib/escalacao/atendimento-manual", () => ({ pausarIaPorAtendimentoManual: vi.fn() }));
 // A chave `channel_sessions.mostrar_grupos`, controlada por teste.
 vi.mock("@/lib/channels/grupos", () => ({ lerMostrarGrupos: vi.fn() }));
+// Nome real do grupo (busca no WAHA) — mockado por inteiro: este arquivo só
+// prova QUE é chamado com os dados certos, não o que ele faz por dentro.
+vi.mock("@/lib/waha/nome-do-grupo", () => ({ atualizarNomeDoGrupo: vi.fn() }));
 
 import { dispatchWahaEvent, type WahaEnvelope, type WahaPayload } from "@/lib/waha/ingest";
 import { aplicarEfeitosPosEntrada } from "@/lib/channels/pos-entrada";
 import { pausarIaPorAtendimentoManual } from "@/lib/escalacao/atendimento-manual";
 import { lerMostrarGrupos } from "@/lib/channels/grupos";
+import { atualizarNomeDoGrupo } from "@/lib/waha/nome-do-grupo";
 
 /**
  * MENSAGEM DE GRUPO: com `mostrar_grupos` desligado (padrão), o comportamento
@@ -116,7 +120,7 @@ function bancoDeMentira(preexistentes: Array<Partial<LinhaMessage>> = []): Duplo
   return { admin, messages, rpcs };
 }
 
-const SESSION = { id: "sessao-1", organization_id: "org-1" };
+const SESSION = { id: "sessao-1", organization_id: "org-1", waha_session_name: "sessao-waha-1" };
 
 function envelope(event: string, payload: WahaPayload): WahaEnvelope {
   return { event, session: "default", payload };
@@ -146,6 +150,7 @@ beforeEach(() => {
   vi.mocked(lerMostrarGrupos).mockReset();
   vi.mocked(aplicarEfeitosPosEntrada).mockClear();
   vi.mocked(pausarIaPorAtendimentoManual).mockClear();
+  vi.mocked(atualizarNomeDoGrupo).mockReset().mockResolvedValue(undefined);
 });
 
 describe("mostrar_grupos desligado (padrão) — comportamento de hoje: descarta", () => {
@@ -199,6 +204,30 @@ describe("mostrar_grupos ligado — inbound", () => {
     await dispatchWahaEvent(admin as never, SESSION as never, envelope("message.any", INBOUND_GRUPO), "req-1");
 
     expect(aplicarEfeitosPosEntrada).not.toHaveBeenCalled();
+  });
+
+  it("chama atualizarNomeDoGrupo com o contact_id que a RPC devolveu", async () => {
+    vi.mocked(lerMostrarGrupos).mockResolvedValue(true);
+    const { admin } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, envelope("message.any", INBOUND_GRUPO), "req-1");
+
+    expect(atualizarNomeDoGrupo).toHaveBeenCalledWith(admin, {
+      organizationId: "org-1",
+      contactId: "contato-grupo-1",
+      sessionName: "sessao-waha-1",
+      groupChatId: "120363000000000000@g.us",
+    });
+  });
+
+  it("se atualizarNomeDoGrupo rejeitar, a mensagem ainda é gravada", async () => {
+    vi.mocked(lerMostrarGrupos).mockResolvedValue(true);
+    vi.mocked(atualizarNomeDoGrupo).mockRejectedValue(new Error("waha fora do ar"));
+    const { admin, messages } = bancoDeMentira();
+
+    await dispatchWahaEvent(admin as never, SESSION as never, envelope("message.any", INBOUND_GRUPO), "req-1");
+
+    expect(messages).toHaveLength(1);
   });
 });
 

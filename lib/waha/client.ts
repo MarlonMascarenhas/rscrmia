@@ -499,6 +499,46 @@ export class WahaClient {
   }
 
   /**
+   * O nome REAL do grupo (`subject`), pra trocar o "Grupo NNNN" provisório
+   * que `fn_upsert_wa_grupo` grava (migration 0394) pelo que o WhatsApp mostra.
+   *
+   * `GET /api/{session}/groups/{groupId}` — doc do WAHA
+   * (waha.devlike.pro/docs/how-to/groups/), suportado no engine NOWEB. Só o
+   * campo `subject` no topo do objeto é lido; o resto do envelope nunca foi
+   * medido aqui.
+   *
+   * NÃO lança: é chamado de dentro do caminho de ingestão de mensagem, e uma
+   * falha aqui não pode impedir a mensagem de ser gravada — o contato fica
+   * com o nome provisório por mais um pouco, e quem chama tenta de novo depois.
+   *
+   * O groupId nunca aparece inteiro no log — só os últimos 4 dígitos, o
+   * bastante para casar com o banco sem publicar o identificador completo.
+   */
+  async obterNomeDoGrupo(sessionName: string, groupId: string): Promise<string | null> {
+    const sufixo = groupId.replace(/@.*$/, "").slice(-4);
+    try {
+      const res = await this.fetchComTeto(
+        `${this.baseUrl}/api/${encodeURIComponent(sessionName)}/groups/${encodeURIComponent(groupId)}`,
+        { headers: { "X-Api-Key": this.apiKey } },
+        3_000,
+      );
+      if (!res.ok) {
+        logger.warn("[waha] não consegui ler o nome do grupo", { status: res.status, grupo_sufixo: sufixo });
+        return null;
+      }
+      const body = (await res.json().catch(() => null)) as { subject?: unknown } | null;
+      const subject = typeof body?.subject === "string" ? body.subject.trim() : "";
+      return subject ? subject.slice(0, 120) : null;
+    } catch (erro) {
+      logger.warn("[waha] falha ao ler o nome do grupo", {
+        erro: erro instanceof Error ? erro.message : String(erro),
+        grupo_sufixo: sufixo,
+      });
+      return null;
+    }
+  }
+
+  /**
    * `replyTo` = citar uma mensagem, como o "responder em cima" do WhatsApp.
    *
    * ─── O defeito que isto conserta ──────────────────────────────────────────

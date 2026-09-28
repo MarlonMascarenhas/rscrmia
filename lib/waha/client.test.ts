@@ -286,6 +286,70 @@ describe("o corpo devolvido pelo WAHA nunca entra na exceção", () => {
   });
 });
 
+describe("obterNomeDoGrupo — nome real do grupo (subject), nunca lança", () => {
+  it("⭐ 200 com subject: GET /api/{session}/groups/{groupId} (com encode), devolve trim até 120 chars", async () => {
+    let vistoPath = "";
+    const server = createServer((req, res) => {
+      vistoPath = req.url ?? "";
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ subject: " Elok " }));
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const c = new WahaClient(url, "chave-de-teste");
+      const nome = await c.obterNomeDoGrupo("minha sessão", "123@g.us");
+      expect(nome).toBe("Elok");
+      expect(vistoPath).toBe(
+        `/api/${encodeURIComponent("minha sessão")}/groups/${encodeURIComponent("123@g.us")}`,
+      );
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it("404 devolve null", async () => {
+    const server = createServer((_req, res) => {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ statusCode: 404, error: "Not Found", message: "not found" }));
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const c = new WahaClient(url, "chave-de-teste");
+      await expect(c.obterNomeDoGrupo("sessao", "123@g.us")).resolves.toBeNull();
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it("JSON sem subject devolve null", async () => {
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ id: "123@g.us" }));
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const c = new WahaClient(url, "chave-de-teste");
+      await expect(c.obterNomeDoGrupo("sessao", "123@g.us")).resolves.toBeNull();
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it("erro de rede devolve null, nunca lança", async () => {
+    // Porta fechada: ninguém escuta -> ECONNREFUSED imediato, sem depender do teto.
+    const server = createServer(() => {});
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const porta = (server.address() as AddressInfo).port;
+    await new Promise<void>((r) => server.close(() => r()));
+
+    const c = new WahaClient(`http://127.0.0.1:${porta}`, "chave-de-teste");
+    await expect(c.obterNomeDoGrupo("sessao", "123@g.us")).resolves.toBeNull();
+  });
+});
+
 /** Respostas locais independentes: não exercitam pairing nem envio WhatsApp. */
 describe("sessões: conflito conhecido só converge com identidade e pós-condição", () => {
   type Step = { method: string; path: string; status: number; body?: unknown };
