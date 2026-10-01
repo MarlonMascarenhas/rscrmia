@@ -113,6 +113,15 @@ const PROVA_PROPRIA: readonly Excecao[] = [
       "de escrita negada em três verbos mais a sonda de grant sob o default ACL do Supabase (TRUNCATE incluso).",
   },
   {
+    tabela: "cobranca_eventos_cakto",
+    razao:
+      "tests/invariants/planos-isolamento.test.ts — recibo do webhook da Cakto (migration 0395): sem privilégio " +
+      "para anon/authenticated/PUBLIC (sonda de grant sob o default ACL do Supabase) e nem o MEMBRO da própria " +
+      "organização lê, por JWT real. A idempotência (23505) e o CHECK do recibo são provados no Postgres. " +
+      "organization_id é ANULÁVEL de propósito (evento sem dono é registrado como sem_organizacao, não perdido) — " +
+      "mesmo desenho de cobranca_eventos, linha acima.",
+  },
+  {
     tabela: "webhook_lead_captures",
     razao:
       "tests/invariants/historico-de-captacao-rls.test.ts prova isolamento " +

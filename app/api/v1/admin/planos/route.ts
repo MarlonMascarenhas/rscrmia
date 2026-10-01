@@ -39,7 +39,7 @@ export async function GET(): Promise<Response> {
     .select(
       "id, codigo, nome, descricao, ordem, libera_tudo, publicado_em, arquivado_em, created_at, " +
         "plano_capacidades(capacidade), plano_limites(limite, valor), " +
-        "plano_precos(id, intervalo, valor_cents, moeda, stripe_price_id, publicado_em, arquivado_em)",
+        "plano_precos(id, intervalo, valor_cents, moeda, cakto_oferta_id, publicado_em, arquivado_em)",
     )
     .is("arquivado_em", null)
     .order("ordem", { ascending: true })

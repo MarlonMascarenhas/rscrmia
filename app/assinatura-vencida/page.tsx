@@ -3,9 +3,12 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BotaoAssinar } from "@/components/cobranca/BotaoAssinar";
 import { emailDeSuporte } from "@/lib/branding/saida";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
+import { ROLE_RANK } from "@/lib/auth/types";
+import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
 import { estadoDeCobrancaDoPedido } from "@/lib/planos/pedido";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -58,6 +61,13 @@ export default async function AssinaturaVencidaPage() {
   const suporte = await emailDeSuporte();
   const outras = user.organizations.filter((o) => o.organization_id !== org.orgId);
 
+  // Quem administra a organização pode assinar direto desta tela — é a porta de
+  // saída do próprio bloqueio (`SEM_GATE_DE_COBRANCA` em `lib/planos/guarda.ts`
+  // isenta `/api/v1/cobranca/`). `viewer`/`agent`/`manager` só veem o preço.
+  const ehAdmin = ROLE_RANK[org.role] >= ROLE_RANK.admin;
+  const cred = ehAdmin ? await credenciaisDaCakto() : null;
+  const online = cred ? caktoPronto(cred) : false;
+
   // Os planos ofertáveis, para a pessoa saber o que pedir. Cliente admin porque
   // `planos` é tabela da INSTALAÇÃO, sem policy — e o que se mostra é só o que
   // está publicado e não arquivado.
@@ -83,7 +93,7 @@ export default async function AssinaturaVencidaPage() {
     estado.acesso.motivo === "teste_vencido"
       ? t("Escolha um plano para continuar usando o sistema. Seus dados estão salvos e nada foi apagado.")
       : estado.acesso.motivo === "inadimplente"
-        ? t("Atualize a forma de pagamento para reativar o acesso. Seus dados estão salvos e nada foi apagado.")
+        ? t("Assine de novo para reativar o acesso. Seus dados estão salvos e nada foi apagado.")
         : t("Reative a assinatura para continuar. Seus dados estão salvos e nada foi apagado.");
 
   return (
@@ -99,18 +109,23 @@ export default async function AssinaturaVencidaPage() {
             <h2 className="text-sm font-semibold">{t("Planos disponíveis")}</h2>
             <ul className="space-y-2">
               {planos.map((p) => {
-                const preco = (
+                const precosAtivos = (
                   p.plano_precos as Array<{
                     valor_cents: number;
                     moeda: string;
                     intervalo: string;
                     arquivado_em: string | null;
                   }> | null
-                )?.find((x) => x.arquivado_em === null);
+                )?.filter((x) => x.arquivado_em === null) ?? [];
+                const preco = precosAtivos[0];
+                const dinheiro = (cents: number, moeda: string) =>
+                  new Intl.NumberFormat(idioma === "es" ? "es" : "pt-BR", { style: "currency", currency: moeda }).format(
+                    cents / 100,
+                  );
                 return (
                   <li
                     key={p.id as string}
-                    className="flex items-baseline justify-between gap-4 rounded-md border p-3"
+                    className="flex flex-wrap items-baseline justify-between gap-4 rounded-md border p-3"
                   >
                     <div>
                       <p className="text-sm font-medium">{p.nome as string}</p>
@@ -118,12 +133,27 @@ export default async function AssinaturaVencidaPage() {
                         <p className="text-xs text-muted-foreground">{p.descricao as string}</p>
                       ) : null}
                     </div>
-                    {preco ? (
+                    {/* Quem administra e tem a Cakto pronta assina direto daqui — a
+                        própria porta de saída do bloqueio. Sem as duas, só o preço. */}
+                    {ehAdmin && online ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(["mensal", "anual"] as const).map((iv) => {
+                          const pv = precosAtivos.find((x) => x.intervalo === iv);
+                          if (!pv) return null;
+                          const rotulo = `${dinheiro(pv.valor_cents, pv.moeda)} ${iv === "anual" ? t("/ano") : t("/mês")}`;
+                          return (
+                            <BotaoAssinar
+                              key={iv}
+                              planoId={p.id as string}
+                              intervalo={iv}
+                              rotulo={`${t("Assinar")} · ${rotulo}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : preco ? (
                       <p className="shrink-0 text-sm font-semibold">
-                        {new Intl.NumberFormat(idioma === "es" ? "es" : "pt-BR", {
-                          style: "currency",
-                          currency: preco.moeda,
-                        }).format(preco.valor_cents / 100)}
+                        {dinheiro(preco.valor_cents, preco.moeda)}
                         <span className="text-xs font-normal text-muted-foreground">
                           {preco.intervalo === "anual" ? t("/ano") : t("/mês")}
                         </span>

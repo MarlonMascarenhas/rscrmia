@@ -39,10 +39,10 @@ export function FaixaDeAssinatura({
       <span>
         {motivo === "em_teste"
           ? `${t("Seu teste grátis termina em")} ${dias} ${dias === 1 ? t("dia") : t("dias")}. ${t("Escolha um plano para não perder o acesso.")}`
-          : `${t("O último pagamento não foi concluído.")} ${t("O acesso continua por mais")} ${dias} ${dias === 1 ? t("dia") : t("dias")}. ${t("Atualize a forma de pagamento.")}`}
+          : `${t("O último pagamento não foi concluído.")} ${t("O acesso continua por mais")} ${dias} ${dias === 1 ? t("dia") : t("dias")}. ${t("Regularize o pagamento.")}`}
       </span>
       <Link href="/app/settings/billing" className="font-semibold underline underline-offset-2">
-        {motivo === "em_teste" ? t("Ver planos") : t("Atualizar pagamento")}
+        {motivo === "em_teste" ? t("Ver planos") : t("Regularizar pagamento")}
       </Link>
     </div>
   );

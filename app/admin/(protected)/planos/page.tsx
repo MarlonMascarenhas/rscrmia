@@ -5,11 +5,12 @@ import { loadAuthUser } from "@/lib/auth/server";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { env } from "@/lib/env";
 import { contarOrganizacoesVencidas, lerConfigDeCobranca } from "@/lib/planos/config";
-import { credenciaisDoStripe, stripePronto } from "@/lib/planos/stripe/cliente";
+import { caktoPronto, credenciaisDaCakto } from "@/lib/planos/cakto/cliente";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { AcoesDoPlano } from "./_acoes";
 import { CartaoDeCobranca } from "./_cobranca";
+import { EventosCakto, type EventoCaktoDaTela } from "./_eventos-cakto";
 import { FormularioDePlano } from "./_form";
 
 export const metadata = { title: "Planos" };
@@ -56,8 +57,19 @@ export default async function Page() {
   const [config, vencidas, cred] = await Promise.all([
     lerConfigDeCobranca(db),
     contarOrganizacoesVencidas(db),
-    credenciaisDoStripe(),
+    credenciaisDaCakto(),
   ]);
+
+  // Os mesmos resultados do índice de pendentes da migration 0395: evento sem
+  // efeito ainda, ou processado sem achar organização/período/assinatura vigente.
+  const RESULTADOS_PENDENTES = ["sem_organizacao", "ignorado_sem_periodo", "ignorado_assinatura_antiga"];
+  const { data: eventosCaktoData } = await db
+    .from("cobranca_eventos_cakto")
+    .select("chave, evento, pedido_id, recebido_em, resultado, erro")
+    .or(`processado_em.is.null,resultado.in.(${RESULTADOS_PENDENTES.join(",")})`)
+    .order("recebido_em", { ascending: false })
+    .limit(50);
+  const eventosCakto = (eventosCaktoData ?? []) as EventoCaktoDaTela[];
 
   const { data } = await db
     .from("planos")
@@ -101,9 +113,17 @@ export default async function Page() {
       <CartaoDeCobranca
         inicial={config}
         vencidas={vencidas}
-        stripe={{ pronto: stripePronto(cred), modo: cred.modo, temChave: cred.chave !== null, temWebhook: cred.segredoDoWebhook !== null }}
-        urlDoWebhook={`${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/api/v1/webhooks/stripe`}
+        cakto={{
+          pronto: caktoPronto(cred),
+          temClientId: cred.clientId !== null,
+          temClientSecret: cred.clientSecret !== null,
+          temWebhook: cred.webhookSecret !== null,
+        }}
+        urlDoWebhook={`${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/api/v1/webhooks/cakto`}
+        urlDoRedirecionamento={`${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/app/settings/billing?checkout=ok`}
       />
+
+      <EventosCakto eventos={eventosCakto} />
 
       <Card>
         <CardHeader>

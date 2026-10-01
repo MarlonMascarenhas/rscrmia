@@ -17,11 +17,10 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
-import { env } from "@/lib/env";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { traduzir } from "@/lib/i18n/dicionario";
-import { credenciaisDoStripe, stripePronto } from "@/lib/planos/stripe/cliente";
-import { criarCheckout } from "@/lib/planos/stripe/sessoes";
+import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
+import { criarCheckoutNaCakto } from "@/lib/planos/cakto/sessoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const corpoSchema = z.object({
@@ -47,8 +46,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return fail("validation_failed", t("Dados inválidos."), 422, { requestId, details: parsed.error.flatten() });
   }
 
-  const cred = await credenciaisDoStripe();
-  if (!stripePronto(cred) || !cred.chave) {
+  const cred = await credenciaisDaCakto();
+  if (!caktoPronto(cred)) {
     return fail(
       "cobranca_indisponivel_na_instalacao",
       t("O pagamento online não está disponível nesta instalação. Fale com quem administra o sistema para assinar."),
@@ -57,29 +56,21 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  const r = await criarCheckout({
+  const r = await criarCheckoutNaCakto({
     db: createAdminClient(),
-    chave: cred.chave,
+    cred,
     organizationId: authz.org.orgId,
     usuarioId: authz.user.id,
-    emailDoUsuario: authz.user.email ?? null,
     planoId: parsed.data.plano_id,
     intervalo: parsed.data.intervalo,
-    urlBase: env.NEXT_PUBLIC_APP_URL.replace(/\/$/, ""),
-    idioma: authz.user.idioma,
   });
 
   if (!r.ok) {
-    const mensagem =
-      r.falha === "plano_indisponivel" || r.falha === "preco_indisponivel"
-        ? t("Este plano não está disponível para assinatura.")
-        : t("Não foi possível iniciar o pagamento agora. Tente de novo em instantes.");
-    return fail(
-      r.falha === "provedor_recusou" ? "unavailable" : "not_found",
-      mensagem,
-      r.falha === "provedor_recusou" ? 502 : 404,
-      { requestId },
-    );
+    const indisponivel = r.falha === "plano_indisponivel" || r.falha === "preco_indisponivel";
+    const mensagem = indisponivel
+      ? t("Este plano não está disponível para assinatura.")
+      : t("Não foi possível iniciar o pagamento agora. Tente de novo em instantes.");
+    return fail(indisponivel ? "not_found" : "unavailable", mensagem, indisponivel ? 404 : 502, { requestId });
   }
 
   void audit({
@@ -89,7 +80,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     resourceType: "assinatura",
     resourceId: authz.org.orgId,
     requestId,
-    metadata: { plano_id: parsed.data.plano_id, intervalo: parsed.data.intervalo, modo: cred.modo },
+    metadata: { plano_id: parsed.data.plano_id, intervalo: parsed.data.intervalo, provedor: "cakto" },
   });
 
   return ok({ url: r.url }, { requestId });

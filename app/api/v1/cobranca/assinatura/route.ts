@@ -6,8 +6,8 @@
  * inadimplente e quer sair tem de conseguir. Por isso sob `/api/v1/cobranca/`
  * (isento do gate) e com `portaDeSaida`.
  *
- * Cancela NO FIM DO PERÍODO: quem pagou usa até o fim, e o provedor avisa quando
- * acaba (`customer.subscription.deleted`) — que é quando o acesso de fato fecha.
+ * Cancela NA CAKTO na hora, mas o ACESSO segue até o fim do período já pago
+ * (`liberado_ate` não muda) — efeito `nao_renova` de `lib/planos/cobranca/maquina.ts`.
  * Nada é apagado: os dados ficam, e voltar a assinar reabre tudo.
  */
 import { randomUUID } from "node:crypto";
@@ -17,8 +17,8 @@ import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { traduzir } from "@/lib/i18n/dicionario";
-import { credenciaisDoStripe } from "@/lib/planos/stripe/cliente";
-import { cancelarNoFimDoPeriodo } from "@/lib/planos/stripe/sessoes";
+import { caktoPronto, credenciaisDaCakto } from "@/lib/planos/cakto/cliente";
+import { cancelarAssinaturaDaOrganizacao } from "@/lib/planos/cakto/sessoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function DELETE(): Promise<Response> {
@@ -34,8 +34,8 @@ export async function DELETE(): Promise<Response> {
   if (!authz.ok) return authz.response;
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
 
-  const cred = await credenciaisDoStripe();
-  if (!cred.chave) {
+  const cred = await credenciaisDaCakto();
+  if (!caktoPronto(cred)) {
     return fail(
       "cobranca_indisponivel_na_instalacao",
       t("O pagamento online não está disponível nesta instalação. Fale com quem administra o sistema."),
@@ -44,7 +44,12 @@ export async function DELETE(): Promise<Response> {
     );
   }
 
-  const r = await cancelarNoFimDoPeriodo({ db: createAdminClient(), chave: cred.chave, organizationId: authz.org.orgId });
+  const r = await cancelarAssinaturaDaOrganizacao({
+    db: createAdminClient(),
+    cred,
+    organizationId: authz.org.orgId,
+    agora: new Date(),
+  });
   if (!r.ok) {
     if (r.falha === "sem_assinatura_no_provedor") {
       return fail(
@@ -64,7 +69,7 @@ export async function DELETE(): Promise<Response> {
     resourceType: "assinatura",
     resourceId: authz.org.orgId,
     requestId,
-    metadata: { ao_fim_do_periodo: true },
+    metadata: { imediato_no_provedor: true, acesso_ate: r.acessoAte ? r.acessoAte.toISOString() : null },
   });
-  return ok({ cancelada_no_fim_do_periodo: true }, { requestId });
+  return ok({ cancelada: true, acesso_ate: r.acessoAte ? r.acessoAte.toISOString() : null }, { requestId });
 }

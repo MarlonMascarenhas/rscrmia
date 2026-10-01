@@ -136,13 +136,13 @@ export const ApiErrorCodes = {
    *  upgrade quando o problema é o banco. É `voice_estado_indeterminado`
    *  aplicado a este eixo, e a razão inteira está em lib/voice/guarda.ts:96-107. */
   plano_estado_indeterminado: "plano_estado_indeterminado",
-  /** 503: o checkout foi pedido mas a instalação não tem Stripe configurado (chave e
-   *  segredo do webhook). Dependência de INSTALAÇÃO — nenhum clique do cliente
-   *  resolve, e a frase manda falar com quem administra o servidor. */
+  /** 503: o checkout foi pedido mas a instalação não tem o provedor de pagamento
+   *  configurado (chave e segredo do webhook). Dependência de INSTALAÇÃO — nenhum
+   *  clique do cliente resolve, e a frase manda falar com quem administra o servidor. */
   cobranca_indisponivel_na_instalacao: "cobranca_indisponivel_na_instalacao",
   /** 409: pediu para cancelar/gerenciar no provedor uma assinatura que não está lá —
-   *  acesso liberado à mão (Pix, cortesia) não tem assinatura no Stripe. A ação é
-   *  falar com quem administra a instalação, não tentar de novo. */
+   *  acesso liberado à mão (Pix, cortesia) não tem assinatura no provedor de pagamento.
+   *  A ação é falar com quem administra a instalação, não tentar de novo. */
   cobranca_sem_assinatura_no_provedor: "cobranca_sem_assinatura_no_provedor",
 
   // ─── ANÚNCIOS, eixo de LEITURA (0214) ───

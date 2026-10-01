@@ -53,6 +53,8 @@ do upstream, não uma contribuição** — e por que ela foi desenhada para ser 
 8. **Stripe por `fetch` na API REST, sem SDK.** `build-and-size` é check obrigatório e a verificação
    de assinatura é HMAC simples (o repo já faz igual nos webhooks do WAHA). A organização de um
    pagamento sai de **dado nosso** (`cobranca_checkouts`), nunca de `metadata` do payload.
+   **Substituído pela ADR-0005 (Cakto)** — o provedor mudou; o `fetch` sem SDK e a origem do dado
+   da organização seguem valendo, agora para a Cakto.
 
 ## O que foi recusado
 
@@ -67,7 +69,9 @@ do upstream, não uma contribuição** — e por que ela foi desenhada para ser 
   depois trancaria de uma vez toda organização que passou de 14 dias — a do próprio dono inclusive.
   O teste só começa com a cobrança ligada.
 - **Tabela de faturas e tela de cartão próprias.** O portal do provedor cobre as duas, com PCI do lado
-  dele; uma cópia nossa envelheceria.
+  dele; uma cópia nossa envelheceria. **Substituído pela ADR-0005 (Cakto)** — a Cakto não documenta
+  portal do cliente; sem ele, cancelamento é só pela nossa tela (acesso até o fim do período pago),
+  e não há troca de cartão nem fatura própria nesta versão.
 - **Bloquear o envio quando o teto é atingido logo de saída.** O modo dos tetos nasce `avisar` e sobe
   um degrau por vez (`off` → `avisar` → `bloquear`).
 
@@ -78,7 +82,8 @@ do upstream, não uma contribuição** — e por que ela foi desenhada para ser 
   `AdminSidebar`, e as rotas de criação com teto). Tudo o mais nasce em arquivos novos, em
   `lib/planos/` e nas rotas de `admin/planos`, `admin/cobranca` e `cobranca/`.
 - **A doutrina de packaging não muda:** as mesmas três imagens, nenhuma variável obrigatória nova
-  (`STRIPE_*` são opcionais e o cofre da instalação vence o `.env`).
+  (`STRIPE_*` são opcionais e o cofre da instalação vence o `.env`). **Substituído pela ADR-0005
+  (Cakto)** — o mesmo vale para `CAKTO_*`; `STRIPE_*` seguem no `env.ts` como piso, sem uso novo.
 - **Ligar a cobrança é uma decisão com preço visível:** a tela diz, antes do clique, quantas
   organizações já estão vencidas e seriam trancadas agora.
 

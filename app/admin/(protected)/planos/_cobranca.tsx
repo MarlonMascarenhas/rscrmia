@@ -11,6 +11,59 @@ import { Switch } from "@/components/ui/switch";
 import { useT } from "@/hooks/i18n/useT";
 import type { ConfigDeCobranca } from "@/lib/planos/config";
 
+/** Os eventos a marcar ao criar o webhook no painel da Cakto. */
+const EVENTOS_DO_WEBHOOK_CAKTO = [
+  "purchase_approved",
+  "subscription_created",
+  "subscription_renewed",
+  "subscription_renewal_refused",
+  "subscription_late",
+  "subscription_late_recovered",
+  "subscription_canceled",
+  "refund",
+  "chargeback",
+] as const;
+
+/** O botão de "Testar credenciais": chama o diagnóstico do admin e mostra o resultado. */
+function BotaoTestarCredenciaisDaCakto() {
+  const t = useT();
+  const [pendente, startTransition] = useTransition();
+  const [resultado, setResultado] = useState<{ ok: boolean; mensagem: string } | null>(null);
+
+  return (
+    <div className="space-y-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={pendente}
+        onClick={() =>
+          startTransition(async () => {
+            setResultado(null);
+            const r = await fetch("/api/v1/admin/cobranca/cakto/testar", { method: "POST" });
+            const j = (await r.json().catch(() => null)) as
+              | { data?: { ok?: boolean }; error?: { message?: string } }
+              | null;
+            if (r.ok && j?.data?.ok) setResultado({ ok: true, mensagem: t("Credenciais funcionando.") });
+            else
+              setResultado({
+                ok: false,
+                mensagem: j?.error?.message ?? t("Não foi possível testar agora. Tente de novo em instantes."),
+              });
+          })
+        }
+      >
+        {pendente ? t("Testando…") : t("Testar credenciais")}
+      </Button>
+      {resultado ? (
+        <p role={resultado.ok ? "status" : "alert"} className={resultado.ok ? "text-xs text-emerald-600" : "text-xs text-destructive"}>
+          {resultado.mensagem}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * O CARTÃO QUE LIGA E AJUSTA A COBRANÇA.
  *
@@ -24,14 +77,16 @@ import type { ConfigDeCobranca } from "@/lib/planos/config";
 export function CartaoDeCobranca({
   inicial,
   vencidas,
-  stripe,
+  cakto,
   urlDoWebhook,
+  urlDoRedirecionamento,
 }: {
   inicial: ConfigDeCobranca;
   /** `null` = não foi possível medir. */
   vencidas: number | null;
-  stripe: { pronto: boolean; modo: string; temChave: boolean; temWebhook: boolean };
+  cakto: { pronto: boolean; temClientId: boolean; temClientSecret: boolean; temWebhook: boolean };
   urlDoWebhook: string;
+  urlDoRedirecionamento: string;
 }) {
   const t = useT();
   const router = useRouter();
@@ -171,27 +226,39 @@ export function CartaoDeCobranca({
         {/* ── O PAGAMENTO ONLINE ─────────────────────────────────────────── */}
         <div className="space-y-2 border-t pt-4 text-sm">
           <p className="font-medium">
-            {t("Pagamento online (Stripe)")}:{" "}
-            {stripe.pronto ? (
-              <span className="text-emerald-600">
-                {t("pronto")} · {stripe.modo === "teste" ? t("modo de TESTE — nenhum dinheiro de verdade") : t("modo de PRODUÇÃO")}
-              </span>
+            {t("Pagamento online (Cakto)")}:{" "}
+            {cakto.pronto ? (
+              <span className="text-emerald-600">{t("pronto")}</span>
             ) : (
               <span className="text-amber-600">{t("não configurado")}</span>
             )}
           </p>
-          {!stripe.pronto ? (
+          {!cakto.pronto ? (
             <p className="text-muted-foreground">
-              {!stripe.temChave ? t("Falta a chave secreta. ") : ""}
-              {!stripe.temWebhook ? t("Falta o segredo do webhook. ") : ""}
-              {t("Cadastre em Credenciais › Cobrança (Stripe). Sem isso o cliente não assina sozinho, mas você segue liberando à mão.")}
+              {!cakto.temClientId ? t("Falta o identificador de aplicativo. ") : ""}
+              {!cakto.temClientSecret ? t("Falta o segredo do aplicativo. ") : ""}
+              {!cakto.temWebhook ? t("Falta o segredo do webhook. ") : ""}
+              {t("Cadastre em Credenciais › Cobrança (Cakto). Sem isso o cliente não assina sozinho, mas você segue liberando à mão.")}
             </p>
           ) : null}
           <p className="text-muted-foreground">
-            {t("No painel do Stripe, o webhook deve apontar para")}{" "}
-            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoWebhook}</code>{" "}
-            {t("e enviar os eventos de checkout, assinatura e fatura.")}
+            {t("No painel da Cakto, cadastre um webhook apontando para")}{" "}
+            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoWebhook}</code>
           </p>
+          <p className="text-muted-foreground">
+            {t("Marque estes eventos ao criar o webhook:")}{" "}
+            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">
+              {EVENTOS_DO_WEBHOOK_CAKTO.join(", ")}
+            </code>
+          </p>
+          <p className="text-muted-foreground">
+            {t("Em cada produto criado na Cakto, em Produto › Configurações › Checkout › Redirecionar após o pagamento, cole")}{" "}
+            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoRedirecionamento}</code>
+          </p>
+          <p className="text-amber-600">
+            {t("A Cakto não tem ambiente de teste público. Para testar, faça uma compra de valor baixo e estorne pelo painel da Cakto.")}
+          </p>
+          <BotaoTestarCredenciaisDaCakto />
         </div>
       </CardContent>
     </Card>

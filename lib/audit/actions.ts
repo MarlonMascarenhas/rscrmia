@@ -897,6 +897,21 @@ export const AUDIT_ACTIONS = [
   "registration.requested",
   "registration.approved",
   "registration.rejected",
+
+  // ─── COBRANÇA PELA CAKTO (migration 0395) ───
+  //
+  // O webhook liga um evento sem dono (`cobranca_eventos_cakto.resultado =
+  // sem_organizacao`) a uma organização, à mão, em /admin. Ação própria porque a
+  // pergunta que se faz depois — "quem decidiu que este pagamento era desta
+  // empresa?" — só tem resposta aqui: o evento nunca deixou de estar registrado,
+  // só passou a ter dono.
+  "assinatura.evento_vinculado_manualmente",
+  // A assinatura ANTIGA cancelada NA CAKTO depois de uma troca de plano
+  // (`lib/planos/cakto/aplicar.ts`). Separada de `assinatura.evento_do_provedor`
+  // porque é um EFEITO DE SAÍDA (chamada à Cakto, melhor esforço) e não a
+  // aplicação do evento de entrada — as duas podem falhar independentemente, e
+  // "a antiga foi mesmo cancelada lá?" só tem resposta nesta linha.
+  "assinatura.assinatura_antiga_cancelada",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

@@ -187,7 +187,6 @@ describe("nenhuma PORTA DE SAÍDA declara capacidade", () => {
   const SAIDAS = [
     "app/api/v1/agenda/google/desconectar/route.ts",
     "app/api/v1/cobranca/checkout/route.ts",
-    "app/api/v1/cobranca/portal/route.ts",
     "app/api/v1/cobranca/assinatura/route.ts",
   ];
   it.each(SAIDAS)("%s não tem `capacidade:`", (rota) => {

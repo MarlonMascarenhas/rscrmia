@@ -3,122 +3,107 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 
 /**
- * Os botões da tela de cobrança. Cada um chama uma rota de `/api/v1/cobranca/` e
- * SEGUE o link que ela devolve — o pagamento e o cartão vivem no domínio do
- * provedor (PCI resolvido do lado dele), e nada do que o cliente digita passa por aqui.
+ * O botão de cancelar da tela de cobrança. Chama `/api/v1/cobranca/assinatura` e
+ * SEGUE o resultado — nada do que o cliente digita passa por aqui.
+ *
+ * SEM PORTAL: a Cakto não tem painel do cliente para cartão, fatura ou recibo — só
+ * o checkout (assinar) e o cancelamento, que são as duas ações desta tela.
+ * Cancelar na Cakto é IMEDIATO, mas o acesso segue até `acesso_ate`, que a rota
+ * devolve — é essa data que a confirmação e o aviso de sucesso mostram.
  */
-async function seguir(caminho: string, metodo: "POST" | "DELETE", corpo?: unknown): Promise<{ url?: string; ok: boolean; mensagem?: string }> {
+async function seguir(
+  caminho: string,
+  metodo: "POST" | "DELETE",
+  corpo?: unknown,
+): Promise<{ ok: boolean; acessoAte?: string | null; mensagem?: string }> {
   const r = await fetch(caminho, {
     method: metodo,
     headers: corpo ? { "Content-Type": "application/json" } : undefined,
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
-  const j = (await r.json().catch(() => null)) as { data?: { url?: string }; error?: { message?: string } } | null;
-  return r.ok ? { ok: true, url: j?.data?.url } : { ok: false, mensagem: j?.error?.message };
+  const j = (await r.json().catch(() => null)) as
+    | { data?: { acesso_ate?: string | null }; error?: { message?: string } }
+    | null;
+  return r.ok ? { ok: true, acessoAte: j?.data?.acesso_ate ?? null } : { ok: false, mensagem: j?.error?.message };
 }
 
-export function BotaoAssinar({ planoId, intervalo, rotulo }: { planoId: string; intervalo: "mensal" | "anual"; rotulo: string }) {
+export function BotoesDaAssinatura({
+  podeCancelar,
+  expiraEmTexto,
+}: {
+  podeCancelar: boolean;
+  /** A data já formatada que a tela mostra em "Renova / vence em". `null` = sem prazo a citar. */
+  expiraEmTexto: string | null;
+}) {
   const t = useT();
-  const [pendente, startTransition] = useTransition();
-  const [erro, setErro] = useState<string | null>(null);
-
-  return (
-    <div className="space-y-1">
-      <Button
-        type="button"
-        size="sm"
-        disabled={pendente}
-        onClick={() =>
-          startTransition(async () => {
-            setErro(null);
-            const r = await seguir("/api/v1/cobranca/checkout", "POST", { plano_id: planoId, intervalo });
-            if (r.ok && r.url) window.location.assign(r.url);
-            else setErro(r.mensagem ?? t("Não foi possível iniciar o pagamento agora. Tente de novo em instantes."));
-          })
-        }
-      >
-        {pendente ? t("Abrindo…") : rotulo}
-      </Button>
-      {erro ? (
-        <p role="alert" className="text-xs text-destructive">
-          {erro}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-export function BotoesDaAssinatura({ podeCancelar }: { podeCancelar: boolean }) {
-  const t = useT();
+  const tagDeIdioma = useTagDeIdioma();
   const [pendente, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [dataCancelada, setDataCancelada] = useState<string | null>(null);
   const [cancelada, setCancelada] = useState(false);
+
+  if (cancelada) {
+    return (
+      <p role="status" className="text-sm text-emerald-600">
+        {dataCancelada
+          ? t("Cancelada — acesso até {data}.").replace("{data}", dataCancelada)
+          : t("A cobrança para agora. Seus dados não são apagados.")}
+      </p>
+    );
+  }
+
+  if (!podeCancelar) return null;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pendente}
-          onClick={() =>
-            startTransition(async () => {
-              setErro(null);
-              const r = await seguir("/api/v1/cobranca/portal", "POST");
-              if (r.ok && r.url) window.location.assign(r.url);
-              else setErro(r.mensagem ?? t("Não foi possível abrir o portal agora. Tente de novo em instantes."));
-            })
-          }
-        >
-          {t("Cartão, faturas e recibos")}
-        </Button>
-
-        {podeCancelar && !cancelada ? (
-          confirmando ? (
-            <>
-              <span className="self-center text-xs text-muted-foreground">
-                {t("Você usa até o fim do período já pago. Seus dados não são apagados.")}
-              </span>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                disabled={pendente}
-                onClick={() =>
-                  startTransition(async () => {
-                    setErro(null);
-                    const r = await seguir("/api/v1/cobranca/assinatura", "DELETE");
-                    if (r.ok) {
-                      setCancelada(true);
-                      setConfirmando(false);
-                    } else setErro(r.mensagem ?? t("Não foi possível cancelar agora. Tente de novo em instantes."));
-                  })
-                }
-              >
-                {t("Confirmar cancelamento")}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmando(false)}>
-                {t("Voltar")}
-              </Button>
-            </>
-          ) : (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmando(true)}>
-              {t("Cancelar assinatura")}
+        {confirmando ? (
+          <>
+            <span className="self-center text-xs text-muted-foreground">
+              {expiraEmTexto
+                ? t("A cobrança para agora. Você usa até {data}. Seus dados não são apagados.").replace(
+                    "{data}",
+                    expiraEmTexto,
+                  )
+                : t("A cobrança para agora. Seus dados não são apagados.")}
+            </span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={pendente}
+              onClick={() =>
+                startTransition(async () => {
+                  setErro(null);
+                  const r = await seguir("/api/v1/cobranca/assinatura", "DELETE");
+                  if (r.ok) {
+                    setDataCancelada(
+                      r.acessoAte ? new Date(r.acessoAte).toLocaleDateString(tagDeIdioma) : expiraEmTexto,
+                    );
+                    setCancelada(true);
+                    setConfirmando(false);
+                  } else setErro(r.mensagem ?? t("Não foi possível cancelar agora. Tente de novo em instantes."));
+                })
+              }
+            >
+              {t("Confirmar cancelamento")}
             </Button>
-          )
-        ) : null}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmando(false)}>
+              {t("Voltar")}
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmando(true)}>
+            {t("Cancelar assinatura")}
+          </Button>
+        )}
       </div>
 
-      {cancelada ? (
-        <p role="status" className="text-sm text-emerald-600">
-          {t("Cancelamento pedido. Você continua com acesso até o fim do período pago.")}
-        </p>
-      ) : null}
       {erro ? (
         <p role="alert" className="text-sm text-destructive">
           {erro}

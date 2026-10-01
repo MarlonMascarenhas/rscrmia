@@ -229,24 +229,31 @@ export const CATALOGO_DA_INSTALACAO: readonly ChaveDaInstalacao[] = [
       "É uma chave de assinatura, não uma configuração: trocá-la invalida a conferência dos documentos já assinados. Fica no arquivo de instalação.",
   },
 
-  // ── COBRANÇA (migration 0393) ─────────────────────────────────────────────
-  // As duas chaves do Stripe moram no cofre, cifradas, e são lidas por
-  // `valorDaInstalacao` no instante do uso (`lib/planos/stripe/cliente.ts`): trocar
-  // a chave pela tela vale para o app E para o worker, sem reiniciar nada.
+  // ── COBRANÇA (Cakto, migration 0393/0395) ─────────────────────────────────
+  // As chaves moram no cofre, cifradas, e são lidas por `valorDaInstalacao` no
+  // instante do uso (`lib/planos/cakto/cliente.ts`): trocar a chave pela tela
+  // vale para o app E para o worker, sem reiniciar nada.
   {
-    chave: "STRIPE_SECRET_KEY",
-    rotulo: "Chave secreta do Stripe",
-    explicacao:
-      "Permite ao sistema criar cobranças e assinaturas na sua conta do Stripe. Comece por uma chave de TESTE (sk_test_…) e troque pela de produção quando for vender de verdade.",
+    chave: "CAKTO_CLIENT_ID",
+    rotulo: "Identificador de aplicativo da Cakto",
+    explicacao: "Identifica seu aplicativo para a Cakto criar e gerenciar cobranças e assinaturas.",
+    grupo: "integracao",
+    natureza: "texto",
+    controle: "edita",
+  },
+  {
+    chave: "CAKTO_CLIENT_SECRET",
+    rotulo: "Segredo do aplicativo da Cakto",
+    explicacao: "Crie no painel da Cakto, com permissão de escrita em produtos, ofertas e assinaturas.",
     grupo: "integracao",
     natureza: "segredo",
     controle: "edita",
   },
   {
-    chave: "STRIPE_WEBHOOK_SECRET",
-    rotulo: "Segredo do webhook do Stripe",
+    chave: "CAKTO_WEBHOOK_SECRET",
+    rotulo: "Segredo do webhook da Cakto",
     explicacao:
-      "É o que prova que um aviso de pagamento veio mesmo do Stripe. Sem ele o sistema recusa todo aviso — e nenhum pagamento libera acesso sozinho.",
+      "É o que prova que um aviso de pagamento veio mesmo da Cakto. Sem ele o sistema recusa todo aviso — e nenhum pagamento libera acesso sozinho.",
     grupo: "integracao",
     natureza: "segredo",
     controle: "edita",

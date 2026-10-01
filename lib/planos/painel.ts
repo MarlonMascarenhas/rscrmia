@@ -44,6 +44,8 @@ export interface PainelDoCliente {
   /** O que o plano inclui, para a tela listar. Vazio quando libera tudo. */
   incluidas: string[];
   temAssinaturaNoProvedor: boolean;
+  /** Cancelamento já pedido na Cakto (imediato lá); o acesso segue até `estado.acesso.expiraEm`. */
+  canceladaEm: Date | null;
 }
 
 export async function lerPainelDoCliente(db: SupabaseClient, organizationId: string): Promise<PainelDoCliente> {
@@ -51,7 +53,7 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
     lerEstadoDeCobranca(db, organizationId),
     db
       .from("assinaturas")
-      .select("situacao, plano_id, stripe_subscription_id")
+      .select("situacao, plano_id, cakto_assinatura_id, cancelada_em")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     db
@@ -62,7 +64,12 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
       .order("ordem", { ascending: true }),
   ]);
 
-  const assin = assinRes.data as { situacao: string; plano_id: string | null; stripe_subscription_id: string | null } | null;
+  const assin = assinRes.data as {
+    situacao: string;
+    plano_id: string | null;
+    cakto_assinatura_id: string | null;
+    cancelada_em: string | null;
+  } | null;
   const planoAtualId = estado.planoId ?? assin?.plano_id ?? null;
 
   const linhas = (planosRes.data ?? []) as unknown as Array<{
@@ -116,6 +123,7 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
     vitrine,
     uso,
     incluidas,
-    temAssinaturaNoProvedor: !!assin?.stripe_subscription_id,
+    temAssinaturaNoProvedor: !!assin?.cakto_assinatura_id,
+    canceladaEm: assin?.cancelada_em ? new Date(assin.cancelada_em) : null,
   };
 }

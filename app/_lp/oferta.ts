@@ -12,7 +12,7 @@
  * `organization_id`, com RLS ligada e zero policies (migration 0393): nenhum papel
  * do PostgREST as lê. A LP é anônima, então só o servidor alcança. O que sai daqui
  * é uma projeção fechada — nome, descrição, preço, rótulos e tetos — e nada de
- * `id`, `stripe_price_id`, `updated_by` ou linha de rascunho.
+ * `id`, `cakto_oferta_id`, `updated_by` ou linha de rascunho.
  *
  * ═══ O TESTE GRÁTIS SÓ É PROMETIDO QUANDO EXISTE ═══
  *

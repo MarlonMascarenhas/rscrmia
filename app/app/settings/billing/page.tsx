@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 
 import { Card } from "@/components/ui/card";
+import { BotaoAssinar } from "@/components/cobranca/BotaoAssinar";
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { emailDeSuporte } from "@/lib/branding/saida";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
 import { lerPainelDoCliente } from "@/lib/planos/painel";
-import { credenciaisDoStripe, stripePronto } from "@/lib/planos/stripe/cliente";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-import { BotaoAssinar, BotoesDaAssinatura } from "./_acoes";
+import { BotoesDaAssinatura } from "./_acoes";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +45,14 @@ export default async function BillingPage({
   const [painel, suporte, cred] = await Promise.all([
     lerPainelDoCliente(db, activeOrg.orgId),
     emailDeSuporte(),
-    credenciaisDoStripe(),
+    credenciaisDaCakto(),
   ]);
   const { estado } = painel;
-  const online = stripePronto(cred);
+  const online = caktoPronto(cred);
+  // A Cakto não tem cobrança automática de recuperação: quem foi cancelado ou está
+  // inadimplente precisa poder assinar de novo — inclusive o PRÓPRIO plano atual,
+  // que por padrão fica sem botão porque já é o que a organização tem.
+  const precisaReassinar = Boolean(painel.canceladaEm) || painel.situacao === "inadimplente";
 
   const dinheiro = (cents: number, moeda: string) =>
     new Intl.NumberFormat(user.idioma === "es" ? "es" : "pt-BR", { style: "currency", currency: moeda }).format(cents / 100);
@@ -93,15 +98,17 @@ export default async function BillingPage({
             <div>
               <dt className="text-xs text-muted-foreground">{t("Acesso")}</dt>
               <dd className="font-medium">
-                {estado.acesso.motivo === "em_teste"
-                  ? `${t("Em teste")} · ${estado.acesso.diasRestantes ?? 0} ${t("dias restantes")}`
-                  : estado.acesso.motivo === "em_carencia"
-                    ? t("Pagamento pendente — atualize o cartão")
-                    : estado.acesso.motivo === "sem_prazo"
-                      ? t("Sem prazo de vencimento")
-                      : estado.acesso.liberado
-                        ? t("Ativo")
-                        : t("Bloqueado")}
+                {painel.canceladaEm && estado.acesso.expiraEm
+                  ? t("Cancelada — acesso até {data}.").replace("{data}", dia(estado.acesso.expiraEm) ?? "")
+                  : estado.acesso.motivo === "em_teste"
+                    ? `${t("Em teste")} · ${estado.acesso.diasRestantes ?? 0} ${t("dias restantes")}`
+                    : estado.acesso.motivo === "em_carencia"
+                      ? t("Pagamento pendente — confira o e-mail da cobrança ou assine de novo.")
+                      : estado.acesso.motivo === "sem_prazo"
+                        ? t("Sem prazo de vencimento")
+                        : estado.acesso.liberado
+                          ? t("Ativo")
+                          : t("Bloqueado")}
               </dd>
             </div>
             {estado.acesso.expiraEm && estado.acesso.motivo !== "sem_prazo" ? (
@@ -114,7 +121,12 @@ export default async function BillingPage({
         )}
 
         {estado.cobrancaLigada && painel.temAssinaturaNoProvedor && online ? (
-          <BotoesDaAssinatura podeCancelar={painel.situacao === "ativa" || painel.situacao === "inadimplente"} />
+          <BotoesDaAssinatura
+            podeCancelar={
+              (painel.situacao === "ativa" || painel.situacao === "inadimplente") && !painel.canceladaEm
+            }
+            expiraEmTexto={dia(estado.acesso.expiraEm)}
+          />
         ) : null}
         {estado.cobrancaLigada && !painel.temAssinaturaNoProvedor && painel.situacao !== null ? (
           <p className="text-xs text-muted-foreground">
@@ -189,7 +201,7 @@ export default async function BillingPage({
                       const preco = p.precos[iv];
                       if (!preco) return null;
                       const rotulo = `${dinheiro(preco.valorCents, preco.moeda)} ${iv === "anual" ? t("/ano") : t("/mês")}`;
-                      return online && !p.atual ? (
+                      return online && (!p.atual || precisaReassinar) ? (
                         <BotaoAssinar key={iv} planoId={p.id} intervalo={iv} rotulo={`${t("Assinar")} · ${rotulo}`} />
                       ) : (
                         <span key={iv} className="text-sm">

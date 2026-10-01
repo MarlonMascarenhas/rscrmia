@@ -53,7 +53,7 @@ const ORDEM: readonly {
   { grupo: "ia", titulo: "Inteligência artificial", resumo: "Como o atendimento automático opera." },
   {
     grupo: "integracao",
-    titulo: "Cobrança (Stripe)",
+    titulo: "Cobrança (Cakto)",
     resumo: "As chaves que deixam seus clientes assinarem sozinhos. Os planos e preços ficam em Planos.",
   },
 ];

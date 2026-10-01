@@ -65,6 +65,10 @@ const PLANO = "eeeeeeee-0000-4000-8000-000000000001";
 
 const TABELAS_DO_CATALOGO = ["planos", "plano_capacidades", "plano_limites", "plano_precos"] as const;
 
+const EMAIL_ADMIN_A = "plano-a@invariant.test";
+const USER_AGENT_CAKTO = "eeeeeeee-2222-4000-8000-000000000099";
+const EMAIL_AGENT_CAKTO = "plano-agent-cakto@invariant.test";
+
 /** Os knobs como o baseline os deixa — capturado ANTES de qualquer teste mexer neles. */
 let knobsDeFabrica = "";
 
@@ -90,6 +94,11 @@ beforeAll(() => {
       ('${ORG_A}', '${PLANO}', 'ativa', now() + interval '30 days', 'invariante A'),
       ('${ORG_B}', '${PLANO}', 'ativa', now() + interval '30 days', 'invariante B')
       on conflict (organization_id) do nothing;
+    insert into auth.users (id, email) values ('${USER_AGENT_CAKTO}', '${EMAIL_AGENT_CAKTO}')
+      on conflict (id) do nothing;
+    insert into public.user_organizations (user_id, organization_id, role, accepted_at) values
+      ('${USER_AGENT_CAKTO}', '${ORG_A}', 'agent', now())
+      on conflict do nothing;
   `);
 });
 
@@ -282,6 +291,15 @@ describe("as constraints que impedem o catálogo de mentir", () => {
     expect(erro, "publicou um preço que o checkout não consegue cobrar").toMatch(/plano_precos_publicado_tem_provedor/);
   });
 
+  it("PUBLICA quando há cakto_oferta_id — a 0395 troca o provedor exigido, de Stripe para Cakto", () => {
+    rodar(`
+      insert into public.plano_precos (plano_id, intervalo, valor_cents, cakto_oferta_id, publicado_em)
+        values ('${PLANO}', 'mensal', 19700, 'oferta_inv_ok', now());
+    `);
+    const cakto = rodar(`select cakto_oferta_id from public.plano_precos where plano_id = '${PLANO}' and intervalo = 'mensal' and publicado_em is not null;`);
+    expect(cakto).toBe("oferta_inv_ok");
+  });
+
   it("limite ZERO é recusado — zero é 'não pode nada', não 'sem limite'", () => {
     const erro = erroDe(`insert into public.plano_limites (plano_id, limite, valor) values ('${PLANO}', 'usuarios', 0);`);
     expect(erro).toMatch(/plano_limites_valor_positivo/);
@@ -311,8 +329,8 @@ describe("as constraints que impedem o catálogo de mentir", () => {
   });
 });
 
-describe("o pagamento: duas tabelas que só o SERVIDOR toca", () => {
-  const TABELAS_DO_SERVIDOR = ["cobranca_checkouts", "cobranca_eventos"] as const;
+describe("o pagamento: as tabelas que só o SERVIDOR toca", () => {
+  const TABELAS_DO_SERVIDOR = ["cobranca_checkouts", "cobranca_eventos", "cobranca_eventos_cakto"] as const;
 
   it.each(TABELAS_DO_SERVIDOR)("%s: nenhum privilégio para anon/authenticated/PUBLIC", (tabela) => {
     const linhas = rodar(`
@@ -358,6 +376,47 @@ describe("o pagamento: duas tabelas que só o SERVIDOR toca", () => {
     `);
     rodar(`delete from public.organizations where id = '${org}';`);
     expect(rodar(`select count(*) from public.cobranca_checkouts where session_id = 'cs_inv_cascade';`)).toBe("0");
+  });
+
+  it("cobranca_checkouts: session_id com espaço e provedor cakto é recusado — não é o token do callback", () => {
+    const erro = erroDe(`insert into public.cobranca_checkouts (session_id, organization_id, provedor) values ('tem espaco', '${ORG_A}', 'cakto');`);
+    expect(erro).toMatch(/cobranca_checkouts_token_da_cakto/);
+  });
+
+  it("cobranca_eventos_cakto: a MESMA chave duas vezes é recusada por 23505 — a idempotência do webhook", () => {
+    rodar(`insert into public.cobranca_eventos_cakto (chave, evento, autenticacao) values ('purchase_approved:evt_cakto_1', 'purchase_approved', 'hmac') on conflict do nothing;`);
+    const erro = erroDe(`insert into public.cobranca_eventos_cakto (chave, evento, autenticacao) values ('purchase_approved:evt_cakto_1', 'purchase_approved', 'hmac');`);
+    expect(erro).toMatch(/duplicate key|23505/);
+  });
+
+  it("cobranca_eventos_cakto: o recibo é processado COM resultado, ou nem um nem outro", () => {
+    const erro = erroDe(`insert into public.cobranca_eventos_cakto (chave, evento, autenticacao, processado_em) values ('purchase_approved:evt_cakto_2', 'purchase_approved', 'hmac', now());`);
+    expect(erro).toMatch(/cobranca_eventos_cakto_recibo/);
+  });
+
+  it("cobranca_eventos_cakto: organização anulável — evento sem dono é REGISTRADO, não perdido", () => {
+    rodar(`insert into public.cobranca_eventos_cakto (chave, evento, autenticacao, processado_em, resultado) values ('purchase_approved:evt_cakto_3', 'purchase_approved', 'hmac', now(), 'sem_organizacao') on conflict do nothing;`);
+    expect(rodar(`select organization_id is null from public.cobranca_eventos_cakto where chave = 'purchase_approved:evt_cakto_3';`)).toBe("t");
+  });
+});
+
+describe("fn_cobranca_orgs_do_admin_por_email (migration 0395)", () => {
+  it("nem anon nem authenticated executam a função", () => {
+    expect(erroDe(`set role anon; select * from public.fn_cobranca_orgs_do_admin_por_email('${EMAIL_ADMIN_A}');`)).toMatch(/permission denied/i);
+    const erro = erroDe(`
+      set role authenticated;
+      select set_config('request.jwt.claims', '{"sub":"${USER_A}"}', false);
+      select * from public.fn_cobranca_orgs_do_admin_por_email('${EMAIL_ADMIN_A}');
+    `);
+    expect(erro).toMatch(/permission denied/i);
+  });
+
+  it("devolve a organização de um admin aceito", () => {
+    expect(rodar(`select organization_id from public.fn_cobranca_orgs_do_admin_por_email('${EMAIL_ADMIN_A}');`)).toBe(ORG_A);
+  });
+
+  it("não devolve nada para um agent — só admin resolve organização por e-mail", () => {
+    expect(rodar(`select coalesce(string_agg(organization_id::text, ','), '') from public.fn_cobranca_orgs_do_admin_por_email('${EMAIL_AGENT_CAKTO}');`)).toBe("");
   });
 });
 
