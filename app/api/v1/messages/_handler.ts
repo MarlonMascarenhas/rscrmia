@@ -27,6 +27,7 @@ import { decidirPreGoLiveDoCanalViaSupabase } from "@/lib/ai/elegibilidade/consu
 import type { Actor, HandlerCtx } from "@/lib/api/handlers/types";
 import { audit } from "@/lib/audit";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { MENSAGENS_POR_CONVERSA } from "@/lib/retencao/politica";
 import {
   CHANNEL_SESSION_REF_COLUMNS,
   DEFAULT_CHANNEL_PROVIDER,
@@ -268,6 +269,26 @@ export async function listMessagesHandler(
   // Chat lê de baixo para cima: o padrão certo é buscar as ÚLTIMAS N e paginar
   // para trás ao rolar. O cursor, portanto, passa a andar para o passado
   // (`lt`), e não mais para o futuro.
+  //
+  // JANELA: a conversa só mostra as `MENSAGENS_POR_CONVERSA` mais recentes, mesmo
+  // antes de o cron de retenção podar o resto. Acha-se a mais antiga da janela
+  // (a N-ésima de cima para baixo); se existir, nada abaixo dela é devolvido,
+  // nem por cursor — e a página que chega nela fecha com `has_more=false`.
+  const { data: janela, error: janelaErro } = await supabase
+    .from("messages")
+    .select("sent_at,id")
+    .eq("conversation_id", conversationId)
+    .eq("organization_id", ctx.organization_id)
+    .order("sent_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(MENSAGENS_POR_CONVERSA);
+  if (janelaErro) {
+    throw new ApiError(500, "internal_error", undefined, ctx.requestId, janelaErro.message);
+  }
+  const janelaRows = (janela ?? []) as unknown as Array<{ sent_at: string; id: string }>;
+  const limiteDaJanela =
+    janelaRows.length >= MENSAGENS_POR_CONVERSA ? janelaRows[janelaRows.length - 1] : null;
+
   let query = supabase
     .from("messages")
     .select(MSG_COLS)
@@ -276,6 +297,12 @@ export async function listMessagesHandler(
     .order("sent_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(q.limit + 1);
+
+  if (limiteDaJanela) {
+    query = query.or(
+      `sent_at.gt.${limiteDaJanela.sent_at},and(sent_at.eq.${limiteDaJanela.sent_at},id.gte.${limiteDaJanela.id})`,
+    );
+  }
 
   if (q.cursor) {
     const c = decodeMsgCursor(q.cursor);

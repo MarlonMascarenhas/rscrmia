@@ -165,6 +165,13 @@ export const RETENCAO_AVISO_DE_CASO_DIAS_PADRAO = 180;
  */
 export const RETENCAO_AVISO_DE_CASO_DIAS_PISO = 30;
 
+/**
+ * Mensagens mantidas por conversa: as N mais recentes. Decisão do produto, fixa
+ * de propósito — sem env, para não virar knob que um `.env` esquecido contradiz.
+ * O piso (100) também mora no corpo de `fn_mensagens_excedentes` (migration 0396).
+ */
+export const MENSAGENS_POR_CONVERSA = 100;
+
 export interface RetencaoInterpretada {
   /** Dias a pedir ao banco. Nunca abaixo do piso, nunca `NaN`. */
   readonly dias: number;

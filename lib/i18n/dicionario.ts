@@ -11804,6 +11804,23 @@ export const DICIONARIO: Traducoes = {
     es: "Conversación de grupo de WhatsApp. Los grupos no se convierten en contacto ni en negocio, y la atención automática no responde aquí.",
   },
   "Grupo do WhatsApp não vira negócio.": { es: "Un grupo de WhatsApp no se convierte en negocio." },
+  "Senha para excluir conversas salva.": { es: "Contraseña para eliminar conversaciones guardada." },
+  "Senha para excluir conversas": { es: "Contraseña para eliminar conversaciones" },
+  "Excluir uma conversa apaga as mensagens e os arquivos dela, e não tem volta. Quem atende só consegue excluir sabendo esta senha. Sem senha definida, ninguém exclui.": { es: "Eliminar una conversación borra sus mensajes y archivos, y no se puede deshacer. Quien atiende solo puede eliminar si conoce esta contraseña. Sin contraseña definida, nadie elimina." },
+  "Configurada": { es: "Configurada" },
+  "Não configurada": { es: "No configurada" },
+  "Entre 6 e 128 caracteres. Salvar de novo troca a senha atual.": { es: "Entre 6 y 128 caracteres. Guardar de nuevo cambia la contraseña actual." },
+  "Só um administrador pode definir ou trocar esta senha.": { es: "Solo un administrador puede definir o cambiar esta contraseña." },
+  "Excluir conversa": { es: "Eliminar conversación" },
+  "Conversa excluída.": { es: "Conversación eliminada." },
+  "Excluir esta conversa?": { es: "¿Eliminar esta conversación?" },
+  "As mensagens e os arquivos desta conversa serão apagados e não tem como desfazer. Digite a senha de exclusão da organização para confirmar.": { es: "Los mensajes y archivos de esta conversación se borrarán y no se puede deshacer. Escribe la contraseña de eliminación de la organización para confirmar." },
+  "Senha de exclusão": { es: "Contraseña de eliminación" },
+  "Senha incorreta.": { es: "Contraseña incorrecta." },
+  "Nenhuma senha configurada. Peça ao administrador para definir em Configurações › Atendimento.": { es: "No hay contraseña configurada. Pide al administrador que la defina en Configuración › Atención." },
+  "Abrir Configurações › Atendimento": { es: "Abrir Configuración › Atención" },
+  "Não consegui excluir agora. Tente de novo.": { es: "No pude eliminar ahora. Inténtalo de nuevo." },
+  "Excluindo...": { es: "Eliminando..." },
 };
 
 /**

@@ -18,6 +18,7 @@ import { JanelaSelo } from "@/components/inbox/JanelaSelo";
 import { ChannelLogo } from "@/components/inbox/ChannelLogo";
 import { Phone, ArrowRight } from "@/lib/ui/icons";
 import { useAuth } from "@/hooks/auth/AuthProvider";
+import { ROLE_RANK } from "@/lib/auth/types";
 import { useClaimConversation } from "@/hooks/inbox/useClaimConversation";
 import { useReleaseConversation } from "@/hooks/inbox/useReleaseConversation";
 import {
@@ -31,6 +32,7 @@ import { useAutomaticoAtivo } from "@/hooks/ai/useAutomaticoAtivo";
 import { OwnerBadge } from "@/components/kanban/OwnerBadge";
 import { comandoDaConversa, ROTULO_DO_MOTIVO } from "@/lib/inbox/comando-da-conversa";
 import { ReassignDialog } from "@/components/inbox/ReassignDialog";
+import { ExcluirConversaDialog } from "@/components/inbox/ExcluirConversaDialog";
 import { SnoozeButton } from "@/components/inbox/SnoozeButton";
 import type { ConversationWithContact } from "@/hooks/inbox/useConversationsRealtime";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
@@ -38,6 +40,8 @@ import { phoneForDisplay } from "@/lib/channels/phone-variants";
 
 interface Props {
   conversation: ConversationWithContact;
+  /** Chamado depois de excluir a conversa (a tela tira a seleção e relê a lista). */
+  onDeleted?: () => void;
 }
 
 /**
@@ -66,9 +70,9 @@ const STATUS_LABEL: Record<string, string> = {
   archived: "Arquivada",
 };
 
-export function ConversationHeader({ conversation }: Props) {
+export function ConversationHeader({ conversation, onDeleted }: Props) {
   const t = useT();
-  const { user } = useAuth();
+  const { user, activeOrg } = useAuth();
   const claim = useClaimConversation();
   const release = useReleaseConversation();
   const close = useCloseConversation();
@@ -82,6 +86,9 @@ export function ConversationHeader({ conversation }: Props) {
   const [reassignOpen, setReassignOpen] = useState(false);
   const [confirmFecharOpen, setConfirmFecharOpen] = useState(false);
   const [confirmArquivarOpen, setConfirmArquivarOpen] = useState(false);
+  const [excluirOpen, setExcluirOpen] = useState(false);
+  // viewer só lê: a rota exige `agent`, então o botão nem aparece para ele.
+  const podeExcluir = activeOrg != null && ROLE_RANK[activeOrg.role] >= ROLE_RANK.agent;
 
   const c = conversation.contacts ?? null;
   const displayName = rotuloDoContato(c, t);
@@ -348,6 +355,20 @@ export function ConversationHeader({ conversation }: Props) {
             {arquivar.isPending ? t("Arquivando...") : t("Arquivar")}
           </Button>
         )}
+        {/* EXCLUIR: destrutivo e sem volta, por isso discreto (ghost) e atrás da
+            senha da organização. Quem não pode (viewer) ou não sabe a senha
+            recebe a recusa da rota dentro do diálogo. */}
+        {podeExcluir && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive"
+            data-testid="excluir-conversa"
+            onClick={() => setExcluirOpen(true)}
+          >
+            {t("Excluir conversa")}
+          </Button>
+        )}
         {/* `xl:hidden` porque a partir de 1280px o painel lateral de CRM entra
             na tela — e ele já tem um "Ver contato", para o MESMO contato, a um
             palmo de distância. Duas portas idênticas na mesma tela não são
@@ -372,6 +393,12 @@ export function ConversationHeader({ conversation }: Props) {
         conversationId={conversation.id}
         open={reassignOpen}
         onOpenChange={setReassignOpen}
+      />
+      <ExcluirConversaDialog
+        conversationId={conversation.id}
+        open={excluirOpen}
+        onOpenChange={setExcluirOpen}
+        onDeleted={() => onDeleted?.()}
       />
       <AlertDialog open={confirmFecharOpen} onOpenChange={setConfirmFecharOpen}>
         <AlertDialogContent>

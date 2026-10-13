@@ -34,6 +34,7 @@ export const ApiErrorCodes = {
   forbidden_role: "forbidden_role",
   forbidden_tenant: "forbidden_tenant",
   lgpd_anonymization_irreversible: "lgpd_anonymization_irreversible",
+  invalid_password: "invalid_password", // DELETE /conversations/[id] com a senha de exclusão errada
 
   // 404
   not_found: "not_found",
@@ -70,6 +71,7 @@ export const ApiErrorCodes = {
   // retentar depois resolve, enquanto conflito manda trocar a chave.
   idempotency_in_progress: "idempotency_in_progress",
   state_conflict: "state_conflict",
+  conversation_delete_password_not_set: "conversation_delete_password_not_set", // a org não definiu a senha: excluir conversa fica bloqueado
   invalid_state: "invalid_state", // resposta a um agent_case que saiu de awaiting_human (spec 15 §7)
   tenant_already_exists: "tenant_already_exists",
   // POST /api/v1/contacts com telefone já cadastrado na mesma organização

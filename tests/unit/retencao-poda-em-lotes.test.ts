@@ -8,6 +8,7 @@ import {
   houveEfeito,
   podarHistorico,
 } from "@/app/api/v1/cron/data-retention/route";
+import { podarMensagensExcedentes } from "@/lib/retencao/poda-de-mensagens";
 
 import {
   RETENCAO_AUDITORIA_DIAS_PADRAO,
@@ -357,5 +358,79 @@ describe("o handler HTTP — a falha entra na trilha, o vazio não", () => {
       action: "retention.sweep_run",
       metadata: { falhou: true },
     });
+  });
+});
+
+describe("podarMensagensExcedentes — janela por conversa (migration 0396)", () => {
+  type Rpc = (n: string, a: Record<string, unknown>) => { data: unknown; error: { message: string } | null };
+  const montar = (rpc: Rpc) => ({ rpc: async (n: string, a: Record<string, unknown>) => rpc(n, a) });
+
+  it("lote vazio: para, não chama storage nem apaga", async () => {
+    const remover = vi.fn(async () => ({ error: null }));
+    const chamadas: string[] = [];
+    const r = await podarMensagensExcedentes(
+      montar((n) => {
+        chamadas.push(n);
+        return { data: [], error: null };
+      }),
+      remover,
+    );
+    expect(r).toEqual({ apagadas: 0, lotes: 0, temResto: false, midiasRemovidas: 0, avisos: [] });
+    expect(chamadas).toEqual(["fn_mensagens_excedentes"]);
+    expect(remover).not.toHaveBeenCalled();
+  });
+
+  it("dois lotes: remove só paths não nulos, apaga e soma", async () => {
+    const lotes = [
+      [
+        { id: "a", media_storage_path: "org/a.jpg" },
+        { id: "b", media_storage_path: null },
+      ],
+      [{ id: "c", media_storage_path: "org/c.jpg" }],
+      [],
+    ];
+    let busca = 0;
+    const remover = vi.fn(async () => ({ error: null }));
+    const r = await podarMensagensExcedentes(
+      montar((n, a) => {
+        if (n === "fn_mensagens_excedentes") return { data: lotes[busca++], error: null };
+        return { data: (a.p_ids as string[]).length, error: null };
+      }),
+      remover,
+    );
+    expect(r).toEqual({ apagadas: 3, lotes: 2, temResto: false, midiasRemovidas: 2, avisos: [] });
+    expect(remover).toHaveBeenNthCalledWith(1, ["org/a.jpg"]);
+    expect(remover).toHaveBeenNthCalledWith(2, ["org/c.jpg"]);
+  });
+
+  it("falha de storage ainda apaga as linhas e vira aviso", async () => {
+    let busca = 0;
+    const r = await podarMensagensExcedentes(
+      montar((n) => {
+        if (n === "fn_mensagens_excedentes") {
+          return { data: busca++ === 0 ? [{ id: "a", media_storage_path: "org/a.jpg" }] : [], error: null };
+        }
+        return { data: 1, error: null };
+      }),
+      async () => ({ error: { message: "storage fora" } }),
+    );
+    expect(r.apagadas).toBe(1);
+    expect(r.midiasRemovidas).toBe(0);
+    expect(r.avisos).toHaveLength(1);
+    expect(r.avisos[0]).toContain("storage fora");
+  });
+
+  it("erro de rpc lança", async () => {
+    await expect(
+      podarMensagensExcedentes(
+        montar(() => ({ data: null, error: { message: "sem grant" } })),
+        async () => ({ error: null }),
+      ),
+    ).rejects.toThrow(/fn_mensagens_excedentes: sem grant/);
+  });
+
+  it("houveEfeito conta mensagens apagadas", () => {
+    const base = { jobs_apagados: 0 } as unknown as Parameters<typeof houveEfeito>[0];
+    expect(houveEfeito({ ...base, mensagens_apagadas: 1 } as never)).toBe(true);
   });
 });

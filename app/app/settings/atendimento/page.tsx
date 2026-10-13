@@ -25,6 +25,8 @@ import { createClient } from "@/lib/supabase/server";
 import { loadChannelRoutingSettings } from "@/lib/routing/channel-policies";
 import { ChannelRoutingForm } from "./_channels-form";
 import { AtendimentoForm } from "./_form";
+import { SenhaDeExclusaoDeConversa } from "./_senha-de-exclusao";
+import { senhaDeExclusaoConfigurada } from "@/lib/auth/senha-de-exclusao-status";
 import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,7 @@ export default async function AtendimentoSettingsPage() {
   const routing = routingConfigSchema.catch(routingConfigSchema.parse({})).parse(settings.routing ?? {});
   const idioma = user.idioma;
   const channels = await loadChannelRoutingSettings(supabase, activeOrg.orgId);
+  const senhaConfigurada = await senhaDeExclusaoConfigurada(activeOrg.orgId);
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
@@ -72,6 +75,10 @@ export default async function AtendimentoSettingsPage() {
         initial={{ ...routing, visibility_mode: settings.visibility_mode ?? DEFAULT_VISIBILITY_MODE }}
       />
       <ChannelRoutingForm initial={channels} />
+      <SenhaDeExclusaoDeConversa
+        configuradaInicial={senhaConfigurada}
+        podeEditar={activeOrg.role === "admin"}
+      />
     </div>
   );
 }

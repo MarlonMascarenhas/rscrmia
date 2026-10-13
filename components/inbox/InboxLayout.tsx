@@ -491,7 +491,11 @@ export function InboxLayout({ initialSelectedId = null }: InboxLayoutProps = {})
           <>
             {/* `key`: trocar de conversa desmonta a confirmação de Fechar/Arquivar
                 aberta — senão o clique de dentro agiria sobre a conversa nova. */}
-            <ConversationHeader key={selectedConversation.id} conversation={selectedConversation} />
+            <ConversationHeader
+              key={selectedConversation.id}
+              conversation={selectedConversation}
+              onDeleted={() => handleSelect(null)}
+            />
             <div className="min-h-0 flex-1 overflow-hidden">
               <ChatThread
                 conversationId={selectedConversation.id}

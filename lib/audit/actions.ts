@@ -912,6 +912,9 @@ export const AUDIT_ACTIONS = [
   // aplicação do evento de entrada — as duas podem falhar independentemente, e
   // "a antiga foi mesmo cancelada lá?" só tem resposta nesta linha.
   "assinatura.assinatura_antiga_cancelada",
+  // Exclusão de conversa pela senha da organização (admin define; agent+ exclui).
+  "conversation.delete_password_set",
+  "conversation.deleted",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

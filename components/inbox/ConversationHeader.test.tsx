@@ -15,9 +15,13 @@ import type { ConversationWithContact } from "@/hooks/inbox/useConversationsReal
 
 const closeMutate = vi.hoisted(() => vi.fn());
 const arquivarMutate = vi.hoisted(() => vi.fn());
+const papel = vi.hoisted(() => ({ atual: "agent" as string }));
 
 vi.mock("@/hooks/auth/AuthProvider", () => ({
-  useAuth: () => ({ user: { id: "u1", support: null } }),
+  useAuth: () => ({
+    user: { id: "u1", support: null },
+    activeOrg: { role: papel.atual },
+  }),
 }));
 vi.mock("@/hooks/inbox/useClaimConversation", () => ({
   useClaimConversation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -77,6 +81,7 @@ function conversa(status: string): ConversationWithContact {
 beforeEach(() => {
   closeMutate.mockReset();
   arquivarMutate.mockReset();
+  papel.atual = "agent";
 });
 
 describe("ConversationHeader — Fechar e Arquivar por AlertDialog", () => {
@@ -135,6 +140,15 @@ describe("ConversationHeader — Fechar e Arquivar por AlertDialog", () => {
       />,
     );
     expect(screen.getByTestId("selo-grupo")).toHaveTextContent("Grupo");
+  });
+
+  it("Excluir conversa aparece para agent e some para viewer", async () => {
+    const { unmount } = render(<ConversationHeader conversation={conversa("open")} />);
+    expect(screen.getByTestId("excluir-conversa")).toBeInTheDocument();
+    unmount();
+    papel.atual = "viewer";
+    render(<ConversationHeader conversation={conversa("open")} />);
+    expect(screen.queryByTestId("excluir-conversa")).not.toBeInTheDocument();
   });
 
   it("conversa 1:1 não mostra o selo 'Grupo'", async () => {

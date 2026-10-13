@@ -18,6 +18,9 @@
  *     Um DELETE grande num banco de cliente trava a tabela e o tempo do lock
  *     cresce com o backlog; lotes de `TAMANHO_DO_LOTE` fecham a transação a cada
  *     rodada e o backlog drena ao longo de vários dias, sem janela de manutenção;
+ *   - poda as mensagens além das `MENSAGENS_POR_CONVERSA` mais recentes de cada
+ *     conversa (migration 0396), apagando antes a mídia delas do Storage. Falha
+ *     de Storage vira aviso e não impede apagar a linha;
  *   - **não decide o que é podável.** As duas regras (quais status são terminais,
  *     o que ainda tem dono, o piso da retenção) moram DENTRO das funções do
  *     banco, porque lá elas valem para qualquer chamador — inclusive um `psql`
@@ -75,24 +78,16 @@ import {
   type ClienteDaCascata,
   type ResultadoDaVarredura,
 } from "@/lib/lgpd/cascata";
+import {
+  MAX_LOTES,
+  TAMANHO_DO_LOTE,
+  podarMensagensExcedentes,
+} from "@/lib/retencao/poda-de-mensagens";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Linhas por transação. Pequeno o bastante para o lock não ser sentido por quem
- * está usando o sistema, grande o bastante para drenar um backlog de anos em
- * poucos dias de rodadas.
- */
-export const TAMANHO_DO_LOTE = 1000;
-
-/**
- * Teto de lotes POR TABELA e por invocação. Sem ele, a primeira rodada numa
- * instalação antiga tentaria apagar tudo de uma vez e seguraria a conexão do
- * cron (timeout de 120 s no crontab) até o `curl` desistir — deixando a
- * transação do último lote para o servidor abortar sozinho.
- */
-export const MAX_LOTES = 20;
+export { MAX_LOTES, TAMANHO_DO_LOTE };
 
 export interface ResultadoDaRetencao {
   jobs_apagados: number;
@@ -118,6 +113,10 @@ export interface ResultadoDaRetencao {
   passagens_tem_resto: boolean;
   /** O registro de entrega do aviso de caso no WhatsApp da equipe (0292). */
   avisos_de_caso_apagados: number;
+  /** Mensagens além da janela por conversa (migration 0396). */
+  mensagens_apagadas?: number;
+  lotes_mensagens?: number;
+  mensagens_tem_resto?: boolean;
   lotes_avisos_de_caso: number;
   avisos_de_caso_tem_resto: boolean;
   retencao_fila_dias: number;
@@ -315,7 +314,9 @@ export function houveEfeito(resultado: ResultadoDaRetencao): boolean {
     // A sétima, pela MESMA razão: uma rodada que só apagou registro de entrega
     // de aviso vencido apagaria linhas e não deixaria registro — e o CLAUDE.md
     // manda auditar QUANDO HÁ EFEITO, nunca parar de auditar.
-    resultado.avisos_de_caso_apagados > 0
+    resultado.avisos_de_caso_apagados > 0 ||
+    // A oitava, pela MESMA razão: mensagem podada é linha (e mídia) apagada.
+    (resultado.mensagens_apagadas ?? 0) > 0
   );
 }
 
@@ -374,6 +375,27 @@ async function handle(req: NextRequest): Promise<Response> {
       varredura = await varrerRedacoesIncompletas(admin as unknown as ClienteDaCascata);
     } catch (err) {
       varredura.falhas.push(err instanceof Error ? err.message : String(err));
+    }
+    // Poda de mensagens: try PRÓPRIO, pelo mesmo motivo — falhar aqui não derruba
+    // o relatório da poda. A falha é logada e vai para o metadata da auditoria.
+    try {
+      const m = await podarMensagensExcedentes(
+        {
+          async rpc(nome, args) {
+            const { data, error } = await admin.rpc(nome as never, args as never);
+            return { data, error };
+          },
+        },
+        (paths) => admin.storage.from("whatsapp-media").remove(paths),
+      );
+      resultado.mensagens_apagadas = m.apagadas;
+      resultado.lotes_mensagens = m.lotes;
+      resultado.mensagens_tem_resto = m.temResto;
+      resultado.avisos.push(...m.avisos);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.error("[data-retention] poda de mensagens falhou", { error: detail, requestId });
+      resultado.avisos.push(`poda de mensagens falhou: ${detail.slice(0, 300)}`);
     }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
