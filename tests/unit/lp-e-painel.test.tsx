@@ -11,9 +11,10 @@
  *      planos originais (Essencial, Profissional, Completo) e cai para a lista GERADA a
  *      partir de `inclui`/`tetos` em qualquer outro nome — e nunca oferece `/signup`
  *      numa instalação `so_convite`.
- *   4. O markup estático (`app/_lp/rs/markup.ts`) preserva o link ao painel e o texto
- *      original no trecho de antes dos planos, e troca o modal de privacidade por links
- *      reais no trecho de depois — sem sobrar `onclick`, `privModal` nem `openPrivacy`.
+ *   4. O markup estático (`app/_lp/rs/markup.ts`, reescrito em 2026-10-17) mantém o link ao
+ *      painel, os links legais reais e a copy nova; NÃO carrega depoimento, número
+ *      inventado nem preço fixo (o preço só vem do banco); FAQ e guia são <details> sem
+ *      JS; e não sobra `onclick`, `privModal`, `openPrivacy` nem `data-lp`.
  *   5. `/painel` manda o logado para o produto e o deslogado para o login — e sessão que
  *      falha na resolução vai para o login, nunca para um 500.
  *   6. `/painel` é público no proxy, e SÓ ele: `/painel/x` não nasce público de carona.
@@ -236,6 +237,37 @@ describe("o markup estático (app/_lp/rs/markup.ts)", () => {
     expect(DEPOIS_DOS_PLANOS).toContain('href="/legal/terms"');
   });
 
+  it("os depoimentos e os números não verificáveis saíram", () => {
+    for (const trecho of [ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS]) {
+      for (const nome of ["Marcos Ferreira", "Patrícia Souza", "Ricardo Lima", "dep-card", "+500", "3x mais rápido"]) {
+        expect(trecho).not.toContain(nome);
+      }
+    }
+  });
+
+  it("nenhum preço fixo no markup — o preço só vem do banco", () => {
+    for (const trecho of [ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS]) {
+      for (const preco of ["R$97", "R$217", "R$297"]) expect(trecho).not.toContain(preco);
+    }
+    expect(DEPOIS_DOS_PLANOS.split("{{PRECOS_DA_LP}}")).toHaveLength(2);
+  });
+
+  it("FAQ e guia são <details> sem JS: nada de data-lp, botão de acordeão nem href=\"#\" solto", () => {
+    for (const trecho of [ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS]) {
+      expect(trecho).not.toContain("data-lp=");
+      expect(trecho).not.toContain('href="#"');
+    }
+    expect(DEPOIS_DOS_PLANOS).toContain('<details class="faq-item"><summary class="faq-q">');
+    expect(DEPOIS_DOS_PLANOS).toContain('<details class="guide-art"><summary class="guide-art-q">');
+    expect(DEPOIS_DOS_PLANOS).not.toContain("Suporte</a>");
+  });
+
+  it("as seções novas existem, com os ids que a navegação usa", () => {
+    for (const id of ["solucao", "como-funciona", "recursos", "para-quem", "faq", "guia"]) {
+      expect(ANTES_DOS_PLANOS + DEPOIS_DOS_PLANOS).toContain(`id="${id}"`);
+    }
+  });
+
   it("nenhuma das duas strings sobrevive com onclick, privModal ou openPrivacy", () => {
     for (const trecho of [ANTES_DOS_PLANOS, DEPOIS_DOS_PLANOS]) {
       expect(trecho).not.toContain("onclick");
@@ -274,6 +306,11 @@ describe("/painel no proxy", () => {
     for (const p of ["/painel/", "/painel/qualquer", "/painelx", "/painel/admin"]) {
       expect(isPublicPath(p), p).toBe(false);
     }
+  });
+  it("/llms.txt é público (GEO) e só ele: sem sufixo nem sub-path", () => {
+    expect(isPublicPath("/llms.txt")).toBe(true);
+    expect(isPublicPath("/llms.txtx")).toBe(false);
+    expect(isPublicPath("/llms.txt/x")).toBe(false);
   });
   it("o produto e o admin continuam protegidos", () => {
     for (const p of ["/app", "/app/inbox", "/admin", "/admin/planos"]) expect(isPublicPath(p), p).toBe(false);
