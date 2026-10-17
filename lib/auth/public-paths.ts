@@ -124,6 +124,9 @@ export const PUBLIC_PATHS: RegExp[] = [
   // dois nomes de propósito: `/^\/legal/` deixaria qualquer sub-path futuro
   // nascer público de carona.
   /^\/legal\/(terms|privacy)$/,
+  // Arquivo estático público para buscadores de IA (GEO); mesmo motivo de robots.txt.
+  // O matcher do proxy só dispensa `.txt` por nome (robots.txt), então llms.txt passava por aqui.
+  /^\/llms\.txt$/,
 ];
 
 export function isPublicPath(pathname: string): boolean {

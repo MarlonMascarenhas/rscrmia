@@ -5,10 +5,10 @@ import type { OfertaDaLp, PlanoDaLp } from "../oferta";
 /**
  * A SEÇÃO DE PLANOS — O ÚNICO PEDAÇO DO MARKUP QUE NÃO VEM DE `markup.ts`.
  *
- * O layout, as classes e os estilos inline são EXATAMENTE os do HTML original
- * (`<section class="plan-section" id="planos">`): o que muda é a origem do preço,
- * do nome e da lista de cada cartão, que agora vêm de `OfertaDaLp` (banco, via
- * `/admin/planos`) em vez de estarem escritos na página. Um preço na LP diferente
+ * A página foi reescrita em 2026-10-17 por pedido do dono (nova copy, estrutura, logo,
+ * SEO); esta seção NÃO mudou de texto, lista nem lógica — só o CSS que a veste. O preço
+ * só vem do banco: o preço, o nome e a lista de cada cartão vêm de `OfertaDaLp`
+ * (`/admin/planos`) em vez de estarem escritos na página. Um preço na LP diferente
  * do que o checkout cobra é o pior tipo de divergência — o cliente a descobre
  * pagando.
  *
@@ -225,7 +225,7 @@ function GarantiaBar() {
     <div className="garantia-bar">
       <div className="garantia-icon">🛡️</div>
       <div>
-        <h4>Cancele quando quiser, sem burocracia</h4>
+        <h3>Cancele quando quiser, sem burocracia</h3>
         <p>
           Não temos contratos anuais obrigatórios nem multas de cancelamento. Você fica porque gosta — e a gente
           trabalha todo dia para merecer isso.
