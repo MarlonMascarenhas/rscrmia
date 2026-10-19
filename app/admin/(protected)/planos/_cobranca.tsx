@@ -11,21 +11,20 @@ import { Switch } from "@/components/ui/switch";
 import { useT } from "@/hooks/i18n/useT";
 import type { ConfigDeCobranca } from "@/lib/planos/config";
 
-/** Os eventos a marcar ao criar o webhook no painel da Cakto. */
-const EVENTOS_DO_WEBHOOK_CAKTO = [
-  "purchase_approved",
-  "subscription_created",
-  "subscription_renewed",
-  "subscription_renewal_refused",
-  "subscription_late",
-  "subscription_late_recovered",
-  "subscription_canceled",
-  "refund",
-  "chargeback",
+/** Os eventos a marcar ao criar o webhook no painel do Asaas. */
+const EVENTOS_DO_WEBHOOK_ASAAS = [
+  "PAYMENT_CREATED",
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_RECEIVED",
+  "PAYMENT_OVERDUE",
+  "PAYMENT_REFUNDED",
+  "PAYMENT_CHARGEBACK_REQUESTED",
+  "SUBSCRIPTION_DELETED",
+  "SUBSCRIPTION_INACTIVATED",
 ] as const;
 
-/** O botão de "Testar credenciais": chama o diagnóstico do admin e mostra o resultado. */
-function BotaoTestarCredenciaisDaCakto() {
+/** O botão de "Testar credenciais": chama o diagnóstico do admin e mostra o ambiente e o resultado. */
+function BotaoTestarCredenciaisDoAsaas() {
   const t = useT();
   const [pendente, startTransition] = useTransition();
   const [resultado, setResultado] = useState<{ ok: boolean; mensagem: string } | null>(null);
@@ -40,12 +39,16 @@ function BotaoTestarCredenciaisDaCakto() {
         onClick={() =>
           startTransition(async () => {
             setResultado(null);
-            const r = await fetch("/api/v1/admin/cobranca/cakto/testar", { method: "POST" });
+            const r = await fetch("/api/v1/admin/cobranca/asaas/testar", { method: "POST" });
             const j = (await r.json().catch(() => null)) as
-              | { data?: { ok?: boolean }; error?: { message?: string } }
+              | { data?: { ok?: boolean; ambiente?: string }; error?: { message?: string } }
               | null;
-            if (r.ok && j?.data?.ok) setResultado({ ok: true, mensagem: t("Credenciais funcionando.") });
-            else
+            if (r.ok && j?.data?.ok) {
+              setResultado({
+                ok: true,
+                mensagem: `${t("Credenciais funcionando.")} ${t("Ambiente")}: ${j.data.ambiente === "producao" ? t("produção") : t("sandbox")}.`,
+              });
+            } else
               setResultado({
                 ok: false,
                 mensagem: j?.error?.message ?? t("Não foi possível testar agora. Tente de novo em instantes."),
@@ -77,16 +80,21 @@ function BotaoTestarCredenciaisDaCakto() {
 export function CartaoDeCobranca({
   inicial,
   vencidas,
-  cakto,
+  asaas,
   urlDoWebhook,
-  urlDoRedirecionamento,
 }: {
   inicial: ConfigDeCobranca;
   /** `null` = não foi possível medir. */
   vencidas: number | null;
-  cakto: { pronto: boolean; temClientId: boolean; temClientSecret: boolean; temWebhook: boolean };
+  asaas: {
+    pronto: boolean;
+    temChave: boolean;
+    temToken: boolean;
+    ambiente: "sandbox" | "producao";
+    chaveDeOutroAmbiente: boolean;
+    tokenForaDoTamanho: boolean;
+  };
   urlDoWebhook: string;
-  urlDoRedirecionamento: string;
 }) {
   const t = useT();
   const router = useRouter();
@@ -226,39 +234,51 @@ export function CartaoDeCobranca({
         {/* ── O PAGAMENTO ONLINE ─────────────────────────────────────────── */}
         <div className="space-y-2 border-t pt-4 text-sm">
           <p className="font-medium">
-            {t("Pagamento online (Cakto)")}:{" "}
-            {cakto.pronto ? (
+            {t("Pagamento online (Asaas)")}:{" "}
+            {asaas.pronto ? (
               <span className="text-emerald-600">{t("pronto")}</span>
             ) : (
               <span className="text-amber-600">{t("não configurado")}</span>
-            )}
+            )}{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              ({t("ambiente")}: {asaas.ambiente === "producao" ? t("produção") : t("sandbox")})
+            </span>
           </p>
-          {!cakto.pronto ? (
+          {!asaas.pronto ? (
             <p className="text-muted-foreground">
-              {!cakto.temClientId ? t("Falta o identificador de aplicativo. ") : ""}
-              {!cakto.temClientSecret ? t("Falta o segredo do aplicativo. ") : ""}
-              {!cakto.temWebhook ? t("Falta o segredo do webhook. ") : ""}
-              {t("Cadastre em Credenciais › Cobrança (Cakto). Sem isso o cliente não assina sozinho, mas você segue liberando à mão.")}
+              {!asaas.temChave ? t("Falta a chave de API do Asaas. ") : ""}
+              {!asaas.temToken ? t("Falta o token do webhook. ") : ""}
+              {t("Cadastre em Credenciais › Cobrança (Asaas). Sem isso o cliente não assina sozinho, mas você segue liberando à mão.")}
+            </p>
+          ) : null}
+          {asaas.chaveDeOutroAmbiente ? (
+            <p role="alert" className="text-amber-600">
+              {t("A chave de API parece ser de outro ambiente: o prefixo dela não combina com o ambiente escolhido. O Asaas vai recusá-la.")}
+            </p>
+          ) : null}
+          {asaas.tokenForaDoTamanho ? (
+            <p role="alert" className="text-amber-600">
+              {t("O token do webhook precisa ter de 32 a 255 caracteres, ou o Asaas não o aceita.")}
             </p>
           ) : null}
           <p className="text-muted-foreground">
-            {t("No painel da Cakto, cadastre um webhook apontando para")}{" "}
-            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoWebhook}</code>
+            {t("No painel do Asaas, cadastre um webhook apontando para")}{" "}
+            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoWebhook}</code>{" "}
+            {t("e use como token de autenticação o mesmo valor guardado em Credenciais.")}
           </p>
           <p className="text-muted-foreground">
             {t("Marque estes eventos ao criar o webhook:")}{" "}
             <code className="rounded-md bg-muted px-1 py-0.5 text-xs">
-              {EVENTOS_DO_WEBHOOK_CAKTO.join(", ")}
+              {EVENTOS_DO_WEBHOOK_ASAAS.join(", ")}
             </code>
           </p>
           <p className="text-muted-foreground">
-            {t("Em cada produto criado na Cakto, em Produto › Configurações › Checkout › Redirecionar após o pagamento, cole")}{" "}
-            <code className="rounded-md bg-muted px-1 py-0.5 text-xs">{urlDoRedirecionamento}</code>
+            {t("Escolha o envio sequencial, para os eventos chegarem na ordem em que aconteceram.")}
           </p>
           <p className="text-amber-600">
-            {t("A Cakto não tem ambiente de teste público. Para testar, faça uma compra de valor baixo e estorne pelo painel da Cakto.")}
+            {t("Se o seu servidor falhar 15 vezes seguidas, o Asaas pausa a fila do webhook e os pagamentos deixam de liberar acesso até você reativá-la no painel do Asaas.")}
           </p>
-          <BotaoTestarCredenciaisDaCakto />
+          <BotaoTestarCredenciaisDoAsaas />
         </div>
       </CardContent>
     </Card>

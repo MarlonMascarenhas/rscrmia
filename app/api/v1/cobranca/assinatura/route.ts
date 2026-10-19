@@ -6,7 +6,7 @@
  * inadimplente e quer sair tem de conseguir. Por isso sob `/api/v1/cobranca/`
  * (isento do gate) e com `portaDeSaida`.
  *
- * Cancela NA CAKTO na hora, mas o ACESSO segue até o fim do período já pago
+ * Remove a assinatura NO ASAAS na hora, mas o ACESSO segue até o fim do período já pago
  * (`liberado_ate` não muda) — efeito `nao_renova` de `lib/planos/cobranca/maquina.ts`.
  * Nada é apagado: os dados ficam, e voltar a assinar reabre tudo.
  */
@@ -17,8 +17,8 @@ import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { traduzir } from "@/lib/i18n/dicionario";
-import { caktoPronto, credenciaisDaCakto } from "@/lib/planos/cakto/cliente";
-import { cancelarAssinaturaDaOrganizacao } from "@/lib/planos/cakto/sessoes";
+import { asaasPronto, credenciaisDoAsaas } from "@/lib/planos/asaas/cliente";
+import { cancelarAssinaturaDaOrganizacao } from "@/lib/planos/asaas/sessoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function DELETE(): Promise<Response> {
@@ -34,8 +34,8 @@ export async function DELETE(): Promise<Response> {
   if (!authz.ok) return authz.response;
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
 
-  const cred = await credenciaisDaCakto();
-  if (!caktoPronto(cred)) {
+  const cred = await credenciaisDoAsaas();
+  if (!asaasPronto(cred)) {
     return fail(
       "cobranca_indisponivel_na_instalacao",
       t("O pagamento online não está disponível nesta instalação. Fale com quem administra o sistema."),

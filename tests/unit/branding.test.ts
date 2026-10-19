@@ -810,16 +810,16 @@ const HOSTS_DECLARADOS: Record<string, EntradaDeHost> = {
     motivo:
       "endpoint da plataforma que roda o crawler do Google Places (`lib/prospecting/provider.ts`). É o destino do request, com a chave da PRÓPRIA organização — trocar pelo domínio do revendedor quebraria a chamada, e esconder o nome não esconde para onde o dado vai.",
   },
-  // ── cobrança (migration 0393/0395) ──
-  "api.cakto.com.br": {
+  // ── cobrança (migration 0393/0397) ──
+  "api.asaas.com": {
     categoria: "FORNECEDOR",
     motivo:
-      "endpoint da API da Cakto (`lib/planos/cakto/cliente.ts`): token OAuth, chamadas autenticadas e cancelamento de assinatura. É o destino do request, com a chave da PRÓPRIA instalação — trocar pelo domínio do revendedor faria a cobrança não chegar a lugar nenhum. Nunca chega à tela.",
+      "endpoint de PRODUÇÃO da API do Asaas (`lib/planos/asaas/cliente.ts`): clientes, assinaturas, cobranças e remoção de assinatura. É o destino do request, com a chave da PRÓPRIA instalação — trocar pelo domínio do revendedor faria a cobrança não chegar a lugar nenhum. Nunca chega à tela.",
   },
-  "pay.cakto.com.br": {
+  "api-sandbox.asaas.com": {
     categoria: "FORNECEDOR",
     motivo:
-      "endpoint do link de pagamento da Cakto (`lib/planos/cakto/cliente.ts`, `urlDePagamento`): é para lá que o cliente é mandado pagar. Endereço do fornecedor por definição — trocar pelo domínio do revendedor faria o link não abrir cobrança nenhuma.",
+      "endpoint de SANDBOX da API do Asaas (`lib/planos/asaas/cliente.ts`), o padrão até o operador escolher `producao`. Mesma razão do host de produção: é o destino do request, não texto de interface.",
   },
   // ── identificador de fio: NÃO é destino de chamada nem texto de tela ──────
   "s.whatsapp.net": {

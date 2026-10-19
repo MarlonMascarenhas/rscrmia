@@ -1,6 +1,6 @@
 # ADR-0005 — A Cakto substitui o Stripe como provedor de cobrança
 
-- **Status:** aceito em 2026-09-29 pelo dono deste fork
+- **Status:** aceito em 2026-09-29 pelo dono deste fork. **Substituído pela [ADR-0006](0006-asaas-substitui-cakto.md)** (2026-10-18): o provedor passou a ser o Asaas; o que vale daqui é o desenho do gate e da máquina de estados, não a Cakto
 - **Data:** 2026-09-29
 - **Migration:** `0395_cobranca_pela_cakto`
 - **ADR que estende:** [`0004-cobranca-por-assinatura-neste-fork.md`](0004-cobranca-por-assinatura-neste-fork.md) —

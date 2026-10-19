@@ -229,33 +229,35 @@ export const CATALOGO_DA_INSTALACAO: readonly ChaveDaInstalacao[] = [
       "É uma chave de assinatura, não uma configuração: trocá-la invalida a conferência dos documentos já assinados. Fica no arquivo de instalação.",
   },
 
-  // ── COBRANÇA (Cakto, migration 0393/0395) ─────────────────────────────────
+  // ── COBRANÇA (Asaas, migration 0393/0397) ─────────────────────────────────
   // As chaves moram no cofre, cifradas, e são lidas por `valorDaInstalacao` no
-  // instante do uso (`lib/planos/cakto/cliente.ts`): trocar a chave pela tela
+  // instante do uso (`lib/planos/asaas/cliente.ts`): trocar a chave pela tela
   // vale para o app E para o worker, sem reiniciar nada.
   {
-    chave: "CAKTO_CLIENT_ID",
-    rotulo: "Identificador de aplicativo da Cakto",
-    explicacao: "Identifica seu aplicativo para a Cakto criar e gerenciar cobranças e assinaturas.",
+    chave: "ASAAS_API_KEY",
+    rotulo: "Chave de API do Asaas",
+    explicacao:
+      "Crie no painel do Asaas (Integrações › Chaves de API). A de produção começa com $aact_prod_ e a de testes com $aact_hmlg_; ela tem de ser do mesmo ambiente escolhido abaixo.",
+    grupo: "integracao",
+    natureza: "segredo",
+    controle: "edita",
+  },
+  {
+    chave: "ASAAS_WEBHOOK_TOKEN",
+    rotulo: "Token do webhook do Asaas",
+    explicacao:
+      "Uma senha de 32 a 255 caracteres que você inventa e cola igual no webhook do Asaas. É o que prova que um aviso de pagamento veio mesmo de lá. Sem ele o sistema recusa todo aviso — e nenhum pagamento libera acesso sozinho.",
+    grupo: "integracao",
+    natureza: "segredo",
+    controle: "edita",
+  },
+  {
+    chave: "ASAAS_AMBIENTE",
+    rotulo: "Ambiente do Asaas (sandbox ou producao)",
+    explicacao:
+      "Escreva sandbox para testar sem cobrar de verdade, ou producao para cobrar. Vazio vale sandbox.",
     grupo: "integracao",
     natureza: "texto",
-    controle: "edita",
-  },
-  {
-    chave: "CAKTO_CLIENT_SECRET",
-    rotulo: "Segredo do aplicativo da Cakto",
-    explicacao: "Crie no painel da Cakto, com permissão de escrita em produtos, ofertas e assinaturas.",
-    grupo: "integracao",
-    natureza: "segredo",
-    controle: "edita",
-  },
-  {
-    chave: "CAKTO_WEBHOOK_SECRET",
-    rotulo: "Segredo do webhook da Cakto",
-    explicacao:
-      "É o que prova que um aviso de pagamento veio mesmo da Cakto. Sem ele o sistema recusa todo aviso — e nenhum pagamento libera acesso sozinho.",
-    grupo: "integracao",
-    natureza: "segredo",
     controle: "edita",
   },
 

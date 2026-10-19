@@ -8,7 +8,9 @@ import { emailDeSuporte } from "@/lib/branding/saida";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
-import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
+import { asaasPronto, credenciaisDoAsaas } from "@/lib/planos/asaas/cliente";
+import { clienteDoAsaasDaOrganizacao } from "@/lib/planos/asaas/sessoes";
+import { urlDeFaturaValida } from "@/lib/planos/asaas/webhook";
 import { estadoDeCobrancaDoPedido } from "@/lib/planos/pedido";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -65,13 +67,24 @@ export default async function AssinaturaVencidaPage() {
   // saída do próprio bloqueio (`SEM_GATE_DE_COBRANCA` em `lib/planos/guarda.ts`
   // isenta `/api/v1/cobranca/`). `viewer`/`agent`/`manager` só veem o preço.
   const ehAdmin = ROLE_RANK[org.role] >= ROLE_RANK.admin;
-  const cred = ehAdmin ? await credenciaisDaCakto() : null;
-  const online = cred ? caktoPronto(cred) : false;
+  const cred = ehAdmin ? await credenciaisDoAsaas() : null;
+  const online = cred ? asaasPronto(cred) : false;
+  const db = createAdminClient();
+  const precisaDocumento =
+    ehAdmin && online ? (await clienteDoAsaasDaOrganizacao(db, org.orgId).catch(() => null)) === null : false;
+
+  // A fatura em aberto (cobrança que venceu): `PAYMENT_OVERDUE` grava o link. Quem
+  // administra paga por ela, sem precisar reassinar.
+  const { data: assinaturaLinha } = ehAdmin
+    ? await db.from("assinaturas").select("asaas_fatura_url").eq("organization_id", org.orgId).maybeSingle()
+    : { data: null };
+  const faturaUrl = (assinaturaLinha as { asaas_fatura_url: string | null } | null)?.asaas_fatura_url ?? null;
+  const faturaEmAberto = faturaUrl && urlDeFaturaValida(faturaUrl) ? faturaUrl : null;
 
   // Os planos ofertáveis, para a pessoa saber o que pedir. Cliente admin porque
   // `planos` é tabela da INSTALAÇÃO, sem policy — e o que se mostra é só o que
   // está publicado e não arquivado.
-  const { data: planos } = await createAdminClient()
+  const { data: planos } = await db
     .from("planos")
     .select("id, nome, descricao, plano_precos(valor_cents, moeda, intervalo, arquivado_em)")
     .not("publicado_em", "is", null)
@@ -133,7 +146,7 @@ export default async function AssinaturaVencidaPage() {
                         <p className="text-xs text-muted-foreground">{p.descricao as string}</p>
                       ) : null}
                     </div>
-                    {/* Quem administra e tem a Cakto pronta assina direto daqui — a
+                    {/* Quem administra e tem o Asaas pronto assina direto daqui — a
                         própria porta de saída do bloqueio. Sem as duas, só o preço. */}
                     {ehAdmin && online ? (
                       <div className="flex flex-wrap gap-2">
@@ -147,6 +160,7 @@ export default async function AssinaturaVencidaPage() {
                               planoId={p.id as string}
                               intervalo={iv}
                               rotulo={`${t("Assinar")} · ${rotulo}`}
+                              precisaDocumento={precisaDocumento}
                             />
                           );
                         })}
@@ -164,6 +178,14 @@ export default async function AssinaturaVencidaPage() {
               })}
             </ul>
           </section>
+        ) : null}
+
+        {faturaEmAberto ? (
+          <Button asChild size="sm" className="w-full">
+            <a href={faturaEmAberto} target="_blank" rel="noopener noreferrer">
+              {t("Fatura em aberto — pagar")}
+            </a>
+          </Button>
         ) : null}
 
         {/* O caminho para pagar. Enquanto a cobrança automática não existe, quem

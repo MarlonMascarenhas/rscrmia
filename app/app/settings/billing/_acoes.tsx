@@ -10,9 +10,9 @@ import { useT } from "@/hooks/i18n/useT";
  * O botão de cancelar da tela de cobrança. Chama `/api/v1/cobranca/assinatura` e
  * SEGUE o resultado — nada do que o cliente digita passa por aqui.
  *
- * SEM PORTAL: a Cakto não tem painel do cliente para cartão, fatura ou recibo — só
- * o checkout (assinar) e o cancelamento, que são as duas ações desta tela.
- * Cancelar na Cakto é IMEDIATO, mas o acesso segue até `acesso_ate`, que a rota
+ * SEM PORTAL: não há aqui troca de cartão — o que existe é a fatura hospedada pelo
+ * Asaas (o link aparece na tela de cobrança), o checkout (assinar) e o cancelamento.
+ * Cancelar no Asaas é IMEDIATO, mas o acesso segue até `acesso_ate`, que a rota
  * devolve — é essa data que a confirmação e o aviso de sucesso mostram.
  */
 async function seguir(

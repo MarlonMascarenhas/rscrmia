@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 
-export interface EventoCaktoDaTela {
+export interface EventoAsaasDaTela {
   chave: string;
   evento: string;
-  pedido_id: string | null;
+  pagamento_id: string | null;
   recebido_em: string;
   resultado: string | null;
   erro: string | null;
@@ -21,8 +21,8 @@ export interface EventoCaktoDaTela {
 /**
  * O FORMULÁRIO QUE LIGA UM EVENTO ÓRFÃO A UMA ORGANIZAÇÃO.
  *
- * Um evento chega sem dono (`resultado: "sem_organizacao"`) quando o pagador da
- * Cakto não casa com nenhum e-mail de admin da organização — o pagamento
+ * Um evento chega sem dono (`resultado: "sem_organizacao"`) quando nem o token
+ * nosso nem a assinatura do Asaas levam a uma organização — o pagamento
  * aconteceu, mas o sistema não sabe para quem liberar. Aqui o dono da instalação
  * resolve isso à mão, pelo slug da organização certa.
  */
@@ -76,23 +76,23 @@ function FormularioDeVinculo({ chave }: { chave: string }) {
 }
 
 /**
- * A LISTA DE PAGAMENTOS DA CAKTO QUE AINDA PRECISAM DE ATENÇÃO.
+ * A LISTA DE PAGAMENTOS DO ASAAS QUE AINDA PRECISAM DE ATENÇÃO.
  *
  * Só os eventos PENDENTES aparecem aqui (`processado_em is null`, ou processados
  * sem organização/sem período/com assinatura antiga) — o resto já teve efeito e
  * não precisa de olho. Sem dado pessoal do pagador: a tabela não guarda nome nem
  * e-mail, só identificadores.
  */
-export function EventosCakto({ eventos }: { eventos: EventoCaktoDaTela[] }) {
+export function EventosAsaas({ eventos }: { eventos: EventoAsaasDaTela[] }) {
   const t = useT();
   const tagDeIdioma = useTagDeIdioma();
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("Pagamentos da Cakto pendentes de ligação")}</CardTitle>
+        <CardTitle>{t("Pagamentos do Asaas pendentes de ligação")}</CardTitle>
         <CardDescription>
-          {t("Eventos que a Cakto avisou e o sistema não conseguiu ligar sozinho a uma organização, ou que ainda não foram processados.")}
+          {t("Eventos que o Asaas avisou e o sistema não conseguiu ligar sozinho a uma organização, ou que ainda não foram processados.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -111,9 +111,9 @@ export function EventosCakto({ eventos }: { eventos: EventoCaktoDaTela[] }) {
                     {new Date(e.recebido_em).toLocaleString(tagDeIdioma)}
                   </p>
                 </div>
-                {e.pedido_id ? (
+                {e.pagamento_id ? (
                   <p className="text-xs text-muted-foreground">
-                    {t("Pedido")}: <span className="font-mono">{e.pedido_id}</span>
+                    {t("Pagamento")}: <span className="font-mono">{e.pagamento_id}</span>
                   </p>
                 ) : null}
                 <p className="text-xs text-muted-foreground">

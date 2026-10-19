@@ -12,6 +12,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { clienteDoAsaasDaOrganizacao } from "@/lib/planos/asaas/sessoes";
+import { urlDeFaturaValida } from "@/lib/planos/asaas/webhook";
 import { CAPACIDADES_DE_PLANO, PORTA_DA_CAPACIDADE, planoLibera } from "@/lib/planos/capacidades";
 import { lerEstadoDeCobranca, type EstadoDeCobranca } from "@/lib/planos/estado";
 import { FORMA_DO_LIMITE, LIMITES_DE_PLANO, type LimiteDePlano } from "@/lib/planos/limites";
@@ -44,8 +46,12 @@ export interface PainelDoCliente {
   /** O que o plano inclui, para a tela listar. Vazio quando libera tudo. */
   incluidas: string[];
   temAssinaturaNoProvedor: boolean;
-  /** Cancelamento já pedido na Cakto (imediato lá); o acesso segue até `estado.acesso.expiraEm`. */
+  /** Cancelamento já pedido no Asaas (imediato lá); o acesso segue até `estado.acesso.expiraEm`. */
   canceladaEm: Date | null;
+  /** A fatura em aberto no Asaas (link hospedado e vencimento `YYYY-MM-DD`), quando há. */
+  faturaEmAberto: { url: string; vencimento: string | null } | null;
+  /** A organização ainda NÃO tem cliente no Asaas: assinar pede nome e CPF/CNPJ. */
+  precisaDocumento: boolean;
 }
 
 export async function lerPainelDoCliente(db: SupabaseClient, organizationId: string): Promise<PainelDoCliente> {
@@ -53,7 +59,7 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
     lerEstadoDeCobranca(db, organizationId),
     db
       .from("assinaturas")
-      .select("situacao, plano_id, cakto_assinatura_id, cancelada_em")
+      .select("situacao, plano_id, asaas_assinatura_id, cancelada_em, asaas_fatura_url, asaas_fatura_vencimento")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     db
@@ -67,8 +73,10 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
   const assin = assinRes.data as {
     situacao: string;
     plano_id: string | null;
-    cakto_assinatura_id: string | null;
+    asaas_assinatura_id: string | null;
     cancelada_em: string | null;
+    asaas_fatura_url: string | null;
+    asaas_fatura_vencimento: string | null;
   } | null;
   const planoAtualId = estado.planoId ?? assin?.plano_id ?? null;
 
@@ -123,7 +131,13 @@ export async function lerPainelDoCliente(db: SupabaseClient, organizationId: str
     vitrine,
     uso,
     incluidas,
-    temAssinaturaNoProvedor: !!assin?.cakto_assinatura_id,
+    temAssinaturaNoProvedor: !!assin?.asaas_assinatura_id,
     canceladaEm: assin?.cancelada_em ? new Date(assin.cancelada_em) : null,
+    faturaEmAberto:
+      assin?.asaas_fatura_url && urlDeFaturaValida(assin.asaas_fatura_url)
+        ? { url: assin.asaas_fatura_url, vencimento: assin.asaas_fatura_vencimento }
+        : null,
+    // Se a leitura falhar, pergunta: o servidor reconfere, e pedir o documento de quem já tem cliente só incomoda.
+    precisaDocumento: (await clienteDoAsaasDaOrganizacao(db, organizationId).catch(() => null)) === null,
   };
 }

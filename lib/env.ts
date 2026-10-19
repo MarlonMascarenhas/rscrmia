@@ -203,12 +203,13 @@ const schema = z.object({
   // `cabecalhosDeAtribuicaoOpenRouter()`, em edge/llm/providers.ts.
   OPENROUTER_APP_URL: z.string().optional().default(""),
   OPENROUTER_APP_TITLE: z.string().optional().default(""),
-  // Cobrança por assinatura (Cakto, migration 0393/0395). OPCIONAIS: sem elas o produto
+  // Cobrança por assinatura (Asaas, migration 0393/0397). OPCIONAIS: sem elas o produto
   // não cobra e a liberação segue pela porta manual do /admin. Semente e piso — o
-  // cofre da instalação vence. `lib/planos/cakto/cliente.ts`.
-  CAKTO_CLIENT_ID: z.string().optional().default(""),
-  CAKTO_CLIENT_SECRET: z.string().optional().default(""),
-  CAKTO_WEBHOOK_SECRET: z.string().optional().default(""),
+  // cofre da instalação vence. `lib/planos/asaas/cliente.ts`. ASAAS_AMBIENTE é
+  // `sandbox` ou `producao` (vazio = sandbox).
+  ASAAS_API_KEY: z.string().optional().default(""),
+  ASAAS_WEBHOOK_TOKEN: z.string().optional().default(""),
+  ASAAS_AMBIENTE: z.string().optional().default(""),
   VERCEL_AI_GATEWAY_URL: z.string().optional().default(""),
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   OPENAI_API_KEY: z.string().optional().default(""),

@@ -1,11 +1,11 @@
 /**
- * LIGA À MÃO UM EVENTO DA CAKTO SEM DONO A UMA ORGANIZAÇÃO.
+ * LIGA À MÃO UM EVENTO DO ASAAS SEM DONO A UMA ORGANIZAÇÃO.
  *
- * O webhook (`app/api/v1/webhooks/cakto/route.ts`) registra todo evento que não
+ * O webhook (`app/api/v1/webhooks/asaas/route.ts`) registra todo evento que não
  * consegue resolver organização como `sem_organizacao` — o pagamento nunca fica
  * perdido, só sem dono. Esta rota é a reconciliação manual: quem administra a
  * instalação escolhe a organização, e o evento é reprocessado com
- * `organizacaoForcada`, o mesmo caminho de `lib/planos/cakto/aplicar.ts`.
+ * `organizacaoForcada`, o mesmo caminho de `lib/planos/asaas/aplicar.ts`.
  *
  * Sob `/api/v1/admin/`, porta de saída do gate de cobrança. `scope === 'full'`:
  * ligar um pagamento a uma organização decide quem passa a ter acesso liberado,
@@ -20,9 +20,9 @@ import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requirePlatformAdmin } from "@/lib/auth/requirePlatformAdmin";
 import { requireSupportWrite } from "@/lib/impersonate/support";
-import { processarEventoDaCakto, type ResultadoDoEventoDaCakto } from "@/lib/planos/cakto/aplicar";
-import { credenciaisDaCakto } from "@/lib/planos/cakto/cliente";
-import { eventoDaEntrada } from "@/lib/planos/cakto/webhook";
+import { processarEventoDoAsaas, type ResultadoDoEventoDoAsaas } from "@/lib/planos/asaas/aplicar";
+import { credenciaisDoAsaas } from "@/lib/planos/asaas/cliente";
+import { eventoDaEntrada } from "@/lib/planos/asaas/webhook";
 import { lerConfigDeCobranca } from "@/lib/planos/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -38,7 +38,6 @@ interface LinhaDoEvento {
   entrada: unknown;
   processado_em: string | null;
   resultado: string | null;
-  enviado_em: string | null;
   recebido_em: string;
 }
 
@@ -75,8 +74,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const organizationId = (org as { id: string }).id;
 
   const { data: linha, error: erroEvento } = await db
-    .from("cobranca_eventos_cakto")
-    .select("chave, entrada, processado_em, resultado, enviado_em, recebido_em")
+    .from("cobranca_eventos_asaas")
+    .select("chave, entrada, processado_em, resultado, recebido_em")
     .eq("chave", chave)
     .maybeSingle();
   if (erroEvento) return fail("internal_error", erroEvento.message, 500, { requestId });
@@ -89,20 +88,20 @@ export async function POST(req: NextRequest): Promise<Response> {
     return fail("state_conflict", "Este pagamento já foi processado.", 409, { requestId });
   }
 
-  const eventoDaCakto = eventoDaEntrada(evento.entrada);
-  if (!eventoDaCakto) {
+  const eventoDoAsaas = eventoDaEntrada(evento.entrada);
+  if (!eventoDoAsaas) {
     return fail("validation_failed", "Não foi possível reconstruir o evento a partir do registro salvo.", 422, {
       requestId,
     });
   }
 
-  const cred = await credenciaisDaCakto();
+  const cred = await credenciaisDoAsaas();
   const { carenciaDias } = await lerConfigDeCobranca(db);
-  const eventoCriadoEm = new Date(evento.enviado_em ?? evento.recebido_em);
+  const eventoCriadoEm = new Date(evento.recebido_em);
 
-  let resultado: ResultadoDoEventoDaCakto;
+  let resultado: ResultadoDoEventoDoAsaas;
   try {
-    resultado = await processarEventoDaCakto(db, eventoDaCakto, {
+    resultado = await processarEventoDoAsaas(db, eventoDoAsaas, {
       agora: new Date(),
       eventoCriadoEm,
       carenciaDias,
@@ -111,12 +110,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);
-    await db.from("cobranca_eventos_cakto").update({ erro: mensagem.slice(0, 500) }).eq("chave", chave);
+    await db.from("cobranca_eventos_asaas").update({ erro: mensagem.slice(0, 500) }).eq("chave", chave);
     return fail("internal_error", "Não foi possível processar o evento.", 500, { requestId });
   }
 
   await db
-    .from("cobranca_eventos_cakto")
+    .from("cobranca_eventos_asaas")
     .update({
       processado_em: new Date().toISOString(),
       resultado: resultado.resultado,

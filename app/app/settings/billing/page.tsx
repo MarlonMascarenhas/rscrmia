@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BotaoAssinar } from "@/components/cobranca/BotaoAssinar";
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { emailDeSuporte } from "@/lib/branding/saida";
 import { traduzir } from "@/lib/i18n/dicionario";
-import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
+import { asaasPronto, credenciaisDoAsaas } from "@/lib/planos/asaas/cliente";
 import { lerPainelDoCliente } from "@/lib/planos/painel";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -45,12 +46,12 @@ export default async function BillingPage({
   const [painel, suporte, cred] = await Promise.all([
     lerPainelDoCliente(db, activeOrg.orgId),
     emailDeSuporte(),
-    credenciaisDaCakto(),
+    credenciaisDoAsaas(),
   ]);
   const { estado } = painel;
-  const online = caktoPronto(cred);
-  // A Cakto não tem cobrança automática de recuperação: quem foi cancelado ou está
-  // inadimplente precisa poder assinar de novo — inclusive o PRÓPRIO plano atual,
+  const online = asaasPronto(cred);
+  // Assinatura cancelada (removida no Asaas) não volta sozinha: quem foi cancelado ou
+  // está inadimplente precisa poder assinar de novo — inclusive o PRÓPRIO plano atual,
   // que por padrão fica sem botão porque já é o que a organização tem.
   const precisaReassinar = Boolean(painel.canceladaEm) || painel.situacao === "inadimplente";
 
@@ -79,6 +80,26 @@ export default async function BillingPage({
       {checkout === "cancelado" ? (
         <Card className="max-w-2xl p-4 text-sm" role="status">
           {t("Você saiu do pagamento sem concluir. Nada foi cobrado.")}
+        </Card>
+      ) : null}
+
+      {/* ── A FATURA EM ABERTO ──────────────────────────────────────────── */}
+      {painel.faturaEmAberto ? (
+        <Card className="max-w-2xl space-y-2 border-amber-500/40 p-4 text-sm" role="status">
+          <p className="font-medium">{t("Fatura em aberto")}</p>
+          {painel.faturaEmAberto.vencimento ? (
+            <p className="text-muted-foreground">
+              {t("Vence em")} {dia(new Date(`${painel.faturaEmAberto.vencimento}T12:00:00-03:00`))}
+            </p>
+          ) : null}
+          <Button asChild size="sm">
+            <a href={painel.faturaEmAberto.url} target="_blank" rel="noopener noreferrer">
+              {t("Fatura em aberto — pagar")}
+            </a>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            {t("Na fatura você escolhe pagar por Pix, boleto ou cartão.")}
+          </p>
         </Card>
       ) : null}
 
@@ -202,7 +223,13 @@ export default async function BillingPage({
                       if (!preco) return null;
                       const rotulo = `${dinheiro(preco.valorCents, preco.moeda)} ${iv === "anual" ? t("/ano") : t("/mês")}`;
                       return online && (!p.atual || precisaReassinar) ? (
-                        <BotaoAssinar key={iv} planoId={p.id} intervalo={iv} rotulo={`${t("Assinar")} · ${rotulo}`} />
+                        <BotaoAssinar
+                          key={iv}
+                          planoId={p.id}
+                          intervalo={iv}
+                          rotulo={`${t("Assinar")} · ${rotulo}`}
+                          precisaDocumento={painel.precisaDocumento}
+                        />
                       ) : (
                         <span key={iv} className="text-sm">
                           {rotulo}
