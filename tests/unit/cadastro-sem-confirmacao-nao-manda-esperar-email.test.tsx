@@ -83,3 +83,37 @@ describe("cadastro quando o provedor já abriu a sessão", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+describe("cadastro quando a action falha", () => {
+  beforeEach(() => {
+    replace.mockClear();
+    signUp.mockReset();
+  });
+
+  it("action que rejeita (rede / resposta não-RSC): mostra a falha de comunicação", async () => {
+    signUp.mockRejectedValue(new Error("Failed to fetch"));
+    render(<SignupForm />);
+    await preencherEEnviar();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Falha de comunicação com o servidor/i)).toBeTruthy(),
+    );
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("envio_de_email_falhou: diz a causa, com e sem convite", async () => {
+    signUp.mockResolvedValue({ ok: false, error: "envio_de_email_falhou" });
+    const { unmount } = render(<SignupForm />);
+    await preencherEEnviar();
+    await waitFor(() =>
+      expect(screen.getByText(/Não conseguimos enviar o e-mail de confirmação/i)).toBeTruthy(),
+    );
+    unmount();
+
+    render(<SignupForm convite={{ token: "tok-123", email: "convidado@plata.test" }} />);
+    await preencherEEnviar(false);
+    await waitFor(() =>
+      expect(screen.getByText(/Não conseguimos enviar o e-mail de confirmação/i)).toBeTruthy(),
+    );
+  });
+});

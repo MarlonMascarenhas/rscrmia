@@ -74,7 +74,16 @@ export function SignupForm({ convite }: { convite?: ConviteDoSignup }) {
             password_confirm: values.password_confirm,
           }
         : values;
-      const res = await signUp(entrada, convite?.token);
+      let res: Awaited<ReturnType<typeof signUp>>;
+      try {
+        res = await signUp(entrada, convite?.token);
+      } catch {
+        // Rede caída ou resposta que não é RSC: a action não devolveu nada.
+        setServerError(
+          t("Falha de comunicação com o servidor. Recarregue a página e tente de novo."),
+        );
+        return;
+      }
       if (res.ok) {
         /**
          * ⚠️ O PROVEDOR JÁ DEIXOU A PESSOA ENTRAR — não existe e-mail para ela
@@ -114,6 +123,13 @@ export function SignupForm({ convite }: { convite?: ConviteDoSignup }) {
         // não na tela inicial (que, para quem foi revogado, é a tela de acesso
         // revogado, com um botão Sair e mais nada).
         setContaExistente(true);
+      } else if (res.error === "envio_de_email_falhou") {
+        // Ramo próprio: "tente novamente" não conserta SMTP quebrado.
+        setServerError(
+          t(
+            "Não conseguimos enviar o e-mail de confirmação. Avise o administrador da instalação.",
+          ),
+        );
       } else if (res.error === "somente_convite") {
         // Ramo próprio porque o `else` diria "Tente novamente", e aqui tentar
         // de novo nunca vai funcionar — é política, não falha transitória.

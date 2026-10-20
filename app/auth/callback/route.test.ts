@@ -279,4 +279,49 @@ describe("GET /auth/callback", () => {
     expect(destino(res)).toBe("/login?error=entrada_com_google_cancelada");
     expect(vi.mocked(audit)).not.toHaveBeenCalled();
   });
+
+  it.each(["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"])(
+    "next externo (%s) não vira open redirect: quem já tem vínculo cai em /app, no domínio configurado",
+    async (next) => {
+      const { GET } = await comSupabase({ troca: { data: { user: USUARIO }, error: null } });
+      vi.mocked(vinculoAtivo).mockResolvedValue("org-existente");
+
+      const res = await GET(requisicao(`code=abc&next=${encodeURIComponent(next)}`));
+
+      expect(destino(res)).toBe("/app");
+      expect(new URL(res.headers.get("location") ?? "").origin).toBe("http://localhost:3000");
+    },
+  );
+
+  it("next externo também é saneado no desvio para o segundo fator", async () => {
+    const { GET } = await comSupabase({
+      troca: { data: { user: USUARIO }, error: null },
+      fatores: [{ id: "f1", status: "verified" }],
+    });
+
+    const res = await GET(requisicao("code=abc&next=https%3A%2F%2Fevil.example"));
+
+    expect(destino(res)).toBe("/login/mfa?factor=f1&next=%2Fapp");
+  });
+
+  it("texto de terceiro na troca falha é truncado em 200 caracteres antes de ir ao rastro", async () => {
+    const { GET } = await comSupabase({
+      troca: { data: null, error: { message: "x".repeat(500) } },
+    });
+
+    await GET(requisicao("code=abc"));
+
+    expect(vi.mocked(audit).mock.calls[0]![0]).toMatchObject({
+      action: "auth.google_signin_failed",
+      metadata: { motivo: "troca_do_code_falhou", reason: "x".repeat(200) },
+    });
+  });
+
+  it("redireciona sempre para NEXT_PUBLIC_APP_URL, nunca para o host interno da requisição", async () => {
+    const { GET } = await comSupabase({ troca: { data: null, error: null } });
+
+    const res = await GET(new NextRequest("http://0.0.0.0:3999/auth/callback"));
+
+    expect(new URL(res.headers.get("location") ?? "").origin).toBe("http://localhost:3000");
+  });
 });

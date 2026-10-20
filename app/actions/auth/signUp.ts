@@ -54,7 +54,11 @@ export type SignUpResult =
         | "rate_limited"
         | "signup_failed"
         | "somente_convite"
-        | "conta_ja_existe";
+        | "conta_ja_existe"
+        // O provedor aceitou o cadastro mas não conseguiu ENVIAR o e-mail de
+        // confirmação (SMTP fora do ar ou mal configurado). É falha da
+        // instalação, não da pessoa: "tente novamente" não resolve.
+        | "envio_de_email_falhou";
       details?: Record<string, unknown>;
     };
 
@@ -193,6 +197,21 @@ export async function signUp(
         userAgent,
       });
       return { ok: false, error: "conta_ja_existe" };
+    }
+
+    const envioFalhou = /sending (confirmation |magic link )?e-?mail|smtp/i.test(error.message);
+    if (envioFalhou) {
+      await audit({
+        action: "auth.signup_failed",
+        metadata: {
+          email_hash: hashEmail(parsed.data.email),
+          reason: error.message,
+        },
+        requestId,
+        ip,
+        userAgent,
+      });
+      return { ok: false, error: "envio_de_email_falhou" };
     }
 
     await audit({

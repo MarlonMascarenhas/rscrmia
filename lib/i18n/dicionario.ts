@@ -7001,6 +7001,12 @@ export const DICIONARIO: Traducoes = {
   "Verificando...": { es: "Verificando..." },
   "Verificar": { es: "Verificar" },
   "Dados inválidos. Confira os campos.": { es: "Datos inválidos. Revisa los campos." },
+  "Não conseguimos enviar o e-mail de confirmação. Avise o administrador da instalação.": {
+    es: "No pudimos enviar el correo de confirmación. Avisa al administrador de la instalación.",
+  },
+  "Falha de comunicação com o servidor. Recarregue a página e tente de novo.": {
+    es: "Fallo de comunicación con el servidor. Recarga la página e inténtalo de nuevo.",
+  },
   "Muitas tentativas. Aguarde alguns minutos.": {
     es: "Demasiados intentos. Espera unos minutos.",
   },

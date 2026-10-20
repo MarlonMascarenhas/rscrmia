@@ -3762,6 +3762,8 @@
   "Verificando...": "正在验证...",
   "Verificar": "验证",
   "Dados inválidos. Confira os campos.": "数据无效。请检查字段。",
+  "Não conseguimos enviar o e-mail de confirmação. Avise o administrador da instalação.": "无法发送确认邮件。请通知安装管理员。",
+  "Falha de comunicação com o servidor. Recarregue a página e tente de novo.": "与服务器通信失败。请刷新页面后重试。",
   "Muitas tentativas. Aguarde alguns minutos.": "尝试次数过多。请等待几分钟。",
   "Não tem conta?": "还没有账户？",
   "Recuperar senha": "找回密码",

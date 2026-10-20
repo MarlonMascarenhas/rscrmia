@@ -28,6 +28,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { modoDeCadastro } from "@/lib/auth/politica-de-cadastro";
+import { audit } from "@/lib/audit";
 
 vi.mock("next/headers", () => ({ headers: vi.fn() }));
 // Mockada aqui em vez de deixar bater no banco: a política é lida em TODO
@@ -171,5 +172,88 @@ describe("signUp — instalação que só aceita convidados", () => {
 
     expect(res).toEqual({ ok: true, sessao_ativa: false });
     expect(signUpDoProvedor).toHaveBeenCalled();
+  });
+});
+
+/**
+ * O provedor aceitou o cadastro mas não conseguiu ENVIAR o e-mail: a tela
+ * precisa dizer a causa (falha da instalação), não "tente novamente".
+ */
+describe("signUp — falha ao enviar o e-mail de confirmação", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    signUpDoProvedor.mockReset();
+    vi.mocked(audit).mockClear();
+    vi.mocked(headers).mockResolvedValue({
+      get: (k: string) => (k === "x-forwarded-for" ? `192.0.2.${n % 250}` : null),
+    } as never);
+    vi.mocked(createClient).mockResolvedValue({
+      auth: { signUp: signUpDoProvedor },
+    } as never);
+    vi.mocked(modoDeCadastro).mockResolvedValue("aberto");
+  });
+
+  it("sem convite: devolve envio_de_email_falhou e audita o motivo", async () => {
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "Error sending confirmation email", status: 500 },
+    });
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(entrada());
+
+    expect(res).toEqual({ ok: false, error: "envio_de_email_falhou" });
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "auth.signup_failed",
+        metadata: expect.objectContaining({ reason: "Error sending confirmation email" }),
+      }),
+    );
+  });
+
+  it("com convite: também devolve envio_de_email_falhou", async () => {
+    const { signInviteToken, INVITE_TTL_SECONDS } = await import("@/lib/auth/invite-token");
+    const dados = entrada();
+    const token = signInviteToken({
+      invite_id: "00000000-0000-4000-8000-000000000004",
+      email: dados.email,
+      organization_id: "00000000-0000-4000-8000-000000000001",
+      role: "agent",
+      exp: Math.floor(Date.now() / 1000) + INVITE_TTL_SECONDS,
+    });
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "Error sending confirmation email", status: 500 },
+    });
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(
+      {
+        full_name: "Convidada da Silva",
+        email: dados.email,
+        password: dados.password,
+        password_confirm: dados.password_confirm,
+      },
+      token,
+    );
+
+    expect(res).toEqual({ ok: false, error: "envio_de_email_falhou" });
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ reason: "Error sending confirmation email" }),
+      }),
+    );
+  });
+
+  it("CONTROLE — 'User already registered' sem convite segue signup_failed", async () => {
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: "User already registered", status: 422 },
+    });
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(entrada());
+
+    expect(res).toEqual({ ok: false, error: "signup_failed" });
   });
 });
