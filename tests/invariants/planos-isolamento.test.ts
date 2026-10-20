@@ -283,21 +283,21 @@ describe("a assinatura sincroniza a organização na mesma transação", () => {
 });
 
 describe("as constraints que impedem o catálogo de mentir", () => {
-  it("não se PUBLICA preço sem o objeto de cobrança no provedor", () => {
+  it("não se PUBLICA preço que não se consegue cobrar (valor zero) — a 0397 trocou a exigência de id do provedor por essa", () => {
     const erro = erroDe(`
       insert into public.plano_precos (plano_id, intervalo, valor_cents, publicado_em)
-        values ('${PLANO}', 'mensal', 19700, now());
+        values ('${PLANO}', 'mensal', 0, now());
     `);
     expect(erro, "publicou um preço que o checkout não consegue cobrar").toMatch(/plano_precos_publicado_tem_provedor/);
   });
 
-  it("PUBLICA quando há cakto_oferta_id — a 0395 troca o provedor exigido, de Stripe para Cakto", () => {
+  it("PUBLICA preço cobrável SEM id de provedor — o Asaas não tem produto nem oferta (0397)", () => {
     rodar(`
-      insert into public.plano_precos (plano_id, intervalo, valor_cents, cakto_oferta_id, publicado_em)
-        values ('${PLANO}', 'mensal', 19700, 'oferta_inv_ok', now());
+      insert into public.plano_precos (plano_id, intervalo, valor_cents, publicado_em)
+        values ('${PLANO}', 'mensal', 19700, now());
     `);
-    const cakto = rodar(`select cakto_oferta_id from public.plano_precos where plano_id = '${PLANO}' and intervalo = 'mensal' and publicado_em is not null;`);
-    expect(cakto).toBe("oferta_inv_ok");
+    const publicado = rodar(`select valor_cents from public.plano_precos where plano_id = '${PLANO}' and intervalo = 'mensal' and publicado_em is not null;`);
+    expect(publicado).toBe("19700");
   });
 
   it("limite ZERO é recusado — zero é 'não pode nada', não 'sem limite'", () => {
@@ -330,7 +330,7 @@ describe("as constraints que impedem o catálogo de mentir", () => {
 });
 
 describe("o pagamento: as tabelas que só o SERVIDOR toca", () => {
-  const TABELAS_DO_SERVIDOR = ["cobranca_checkouts", "cobranca_eventos", "cobranca_eventos_cakto"] as const;
+  const TABELAS_DO_SERVIDOR = ["cobranca_checkouts", "cobranca_eventos", "cobranca_eventos_cakto", "cobranca_eventos_asaas"] as const;
 
   it.each(TABELAS_DO_SERVIDOR)("%s: nenhum privilégio para anon/authenticated/PUBLIC", (tabela) => {
     const linhas = rodar(`
@@ -381,6 +381,41 @@ describe("o pagamento: as tabelas que só o SERVIDOR toca", () => {
   it("cobranca_checkouts: session_id com espaço e provedor cakto é recusado — não é o token do callback", () => {
     const erro = erroDe(`insert into public.cobranca_checkouts (session_id, organization_id, provedor) values ('tem espaco', '${ORG_A}', 'cakto');`);
     expect(erro).toMatch(/cobranca_checkouts_token_da_cakto/);
+  });
+
+  it("cobranca_checkouts: o provedor 'asaas' é admitido (e é o padrão); um provedor inventado não", () => {
+    rodar(`insert into public.cobranca_checkouts (session_id, organization_id) values ('dc_inv_asaas_padrao', '${ORG_A}') on conflict do nothing;`);
+    expect(rodar(`select provedor from public.cobranca_checkouts where session_id = 'dc_inv_asaas_padrao';`)).toBe("asaas");
+    const erro = erroDe(`insert into public.cobranca_checkouts (session_id, organization_id, provedor) values ('dc_inv_x', '${ORG_A}', 'inventado');`);
+    expect(erro).toMatch(/cobranca_checkouts_provedor/);
+  });
+
+  it("cobranca_checkouts: session_id com espaço e provedor asaas é recusado — não é o token do externalReference", () => {
+    const erro = erroDe(`insert into public.cobranca_checkouts (session_id, organization_id, provedor) values ('tem espaco', '${ORG_A}', 'asaas');`);
+    expect(erro).toMatch(/cobranca_checkouts_token_do_asaas/);
+  });
+
+  it("cobranca_eventos_asaas: o MESMO id de evento duas vezes é recusado por 23505 — a idempotência do webhook", () => {
+    rodar(`insert into public.cobranca_eventos_asaas (chave, evento) values ('evt_asaas_inv_1', 'PAYMENT_RECEIVED') on conflict do nothing;`);
+    const erro = erroDe(`insert into public.cobranca_eventos_asaas (chave, evento) values ('evt_asaas_inv_1', 'PAYMENT_RECEIVED');`);
+    expect(erro).toMatch(/duplicate key|23505/);
+  });
+
+  it("cobranca_eventos_asaas: o recibo é processado COM resultado, ou nem um nem outro", () => {
+    const erro = erroDe(`insert into public.cobranca_eventos_asaas (chave, evento, processado_em) values ('evt_asaas_inv_2', 'PAYMENT_RECEIVED', now());`);
+    expect(erro).toMatch(/cobranca_eventos_asaas_recibo/);
+  });
+
+  it("cobranca_eventos_asaas: organização anulável — evento sem dono é REGISTRADO, não perdido", () => {
+    rodar(`insert into public.cobranca_eventos_asaas (chave, evento, processado_em, resultado) values ('evt_asaas_inv_3', 'PAYMENT_RECEIVED', now(), 'sem_organizacao') on conflict do nothing;`);
+    expect(rodar(`select organization_id is null from public.cobranca_eventos_asaas where chave = 'evt_asaas_inv_3';`)).toBe("t");
+  });
+
+  it("assinaturas: asaas_assinatura_id é ÚNICO — duas organizações não dividem a mesma assinatura do provedor", () => {
+    rodar(`update public.assinaturas set asaas_assinatura_id = 'sub_inv_unica' where organization_id = '${ORG_A}';`);
+    const erro = erroDe(`update public.assinaturas set asaas_assinatura_id = 'sub_inv_unica' where organization_id = '${ORG_B}';`);
+    expect(erro).toMatch(/assinaturas_asaas_assinatura_id_key|duplicate key/);
+    rodar(`update public.assinaturas set asaas_assinatura_id = null where organization_id = '${ORG_A}';`);
   });
 
   it("cobranca_eventos_cakto: a MESMA chave duas vezes é recusada por 23505 — a idempotência do webhook", () => {

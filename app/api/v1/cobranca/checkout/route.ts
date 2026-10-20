@@ -19,13 +19,18 @@ import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { traduzir } from "@/lib/i18n/dicionario";
-import { credenciaisDaCakto, caktoPronto } from "@/lib/planos/cakto/cliente";
-import { criarCheckoutNaCakto } from "@/lib/planos/cakto/sessoes";
+import { asaasPronto, credenciaisDoAsaas } from "@/lib/planos/asaas/cliente";
+import { criarCheckoutNoAsaas } from "@/lib/planos/asaas/sessoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// `nome` e `documento` (CPF/CNPJ) só são exigidos quando a organização ainda não tem
+// cliente no Asaas — quem decide é `criarCheckoutNoAsaas`. O documento vai ao Asaas e a
+// mais lugar nenhum: não é gravado, nem logado, nem auditado.
 const corpoSchema = z.object({
   plano_id: z.string().uuid(),
   intervalo: z.enum(["mensal", "anual"]),
+  nome: z.string().trim().min(1).max(100).optional(),
+  documento: z.string().max(32).optional(),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -46,8 +51,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     return fail("validation_failed", t("Dados inválidos."), 422, { requestId, details: parsed.error.flatten() });
   }
 
-  const cred = await credenciaisDaCakto();
-  if (!caktoPronto(cred)) {
+  const cred = await credenciaisDoAsaas();
+  if (!asaasPronto(cred)) {
     return fail(
       "cobranca_indisponivel_na_instalacao",
       t("O pagamento online não está disponível nesta instalação. Fale com quem administra o sistema para assinar."),
@@ -56,16 +61,38 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  const r = await criarCheckoutNaCakto({
+  const r = await criarCheckoutNoAsaas({
     db: createAdminClient(),
     cred,
     organizationId: authz.org.orgId,
     usuarioId: authz.user.id,
     planoId: parsed.data.plano_id,
     intervalo: parsed.data.intervalo,
+    pagador:
+      parsed.data.nome && parsed.data.documento ? { nome: parsed.data.nome, documento: parsed.data.documento } : null,
   });
 
   if (!r.ok) {
+    if (r.falha === "documento_obrigatorio") {
+      return fail("validation_failed", t("Informe o nome e o CPF ou CNPJ para assinar."), 422, {
+        requestId,
+        details: { campo: "documento" },
+      });
+    }
+    if (r.falha === "documento_invalido") {
+      return fail("validation_failed", t("CPF ou CNPJ inválido. Confira os números."), 422, {
+        requestId,
+        details: { campo: "documento" },
+      });
+    }
+    if (r.falha === "fatura_indisponivel") {
+      return fail(
+        "unavailable",
+        t("Estamos preparando a sua fatura. Aguarde alguns minutos e tente de novo."),
+        502,
+        { requestId },
+      );
+    }
     const indisponivel = r.falha === "plano_indisponivel" || r.falha === "preco_indisponivel";
     const mensagem = indisponivel
       ? t("Este plano não está disponível para assinatura.")
@@ -80,7 +107,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     resourceType: "assinatura",
     resourceId: authz.org.orgId,
     requestId,
-    metadata: { plano_id: parsed.data.plano_id, intervalo: parsed.data.intervalo, provedor: "cakto" },
+    metadata: { plano_id: parsed.data.plano_id, intervalo: parsed.data.intervalo, provedor: "asaas" },
   });
 
   return ok({ url: r.url }, { requestId });

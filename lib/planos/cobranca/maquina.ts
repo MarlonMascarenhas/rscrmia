@@ -1,11 +1,11 @@
 /**
  * A MÁQUINA DE ESTADOS DE ASSINATURA — NEUTRA DE PROVEDOR. PURA.
  *
- * Cópia de `lib/planos/stripe/webhook.ts` (seção 3), com o EFEITO trocado por um
- * vocabulário que não fala Stripe — porque a Cakto não manda status de assinatura
- * do jeito do Stripe (`active`/`past_due`/`canceled`...); manda EVENTOS
- * (`purchase_approved`, `subscription_renewal_refused`...), e cada evento já É o
- * efeito. Ver `lib/planos/cakto/webhook.ts` para o mapeamento evento → efeito.
+ * O EFEITO é um vocabulário que não fala nenhum provedor: o Asaas não manda status
+ * de assinatura, manda EVENTOS (`PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`...), e cada
+ * evento já É o efeito. Ver `lib/planos/asaas/webhook.ts` para o mapeamento
+ * evento → efeito. (Nasceu como cópia do webhook do Stripe, depois serviu à Cakto;
+ * a máquina não mudou nas duas trocas de provedor — ADR-0005 e ADR-0006.)
  *
  * Nada aqui toca rede, banco ou relógio próprio (`agora` é argumento) — o mesmo
  * contrato do arquivo copiado, pela mesma razão: provar a máquina inteira sem
@@ -141,7 +141,7 @@ export function proximaAssinatura(entrada: {
 // 3. O fim do acesso pago — a partir da PRÓXIMA COBRANÇA, nunca do carimbo antigo
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Dias do intervalo de cobrança, quando a Cakto não manda a próxima data válida. */
+/** Dias do intervalo de cobrança, quando o provedor não dá a próxima data válida. */
 export const DIAS_DO_INTERVALO = { mensal: 30, anual: 365 } as const;
 
 /** 1 dia de margem sobre o prazo — para a renovação seguinte não achar a conta
@@ -150,7 +150,7 @@ export const MARGEM_DE_RENOVACAO_MS = 86_400_000;
 
 /**
  * O novo `liberadoAte`, calculado a partir do que o EVENTO ATUAL diz — nunca a
- * partir do `liberadoAte` anterior. Dois eventos da mesma renovação (ex.: a Cakto
+ * partir do `liberadoAte` anterior. Dois eventos da mesma renovação (ex.: o Asaas
  * reentrega) estenderiam o prazo duas vezes se somássemos à data antiga; somar à
  * `proximaCobranca` do próprio evento é idempotente: reentregar o mesmo evento dá
  * o mesmo resultado.
