@@ -69,6 +69,10 @@ check "8 GB seguem recomendados na mensagem" grep -q 'recomenda 8 GB' "$INSTALLE
 check "instalador entrega o SMTP do CRM ao GoTrue" grep -q 'sincronizar_smtp_do_gotrue' "$INSTALLER"
 check "sem SMTP, o fim da instalacao avisa" grep -q "sem SMTP, 'esqueci a senha'" "$INSTALLER"
 
+# (d) Modelos de e-mail: o GoTrue busca os do app (o padrao do Supabase e recusado).
+check "override aponta os modelos de e-mail do GoTrue para o app" bash -c \
+  'grep -qE "GOTRUE_MAILER_TEMPLATES_CONFIRMATION: .*/email-templates/confirmation" "$1" && grep -qE "GOTRUE_MAILER_TEMPLATES_RECOVERY: .*/email-templates/recovery" "$1"' _ "$OVERRIDE"
+
 if [[ "$FAILS" -ne 0 ]]; then
   printf '\n%d teste(s) falharam.\n' "$FAILS"
   exit 1
