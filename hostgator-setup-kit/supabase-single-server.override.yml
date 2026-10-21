@@ -25,6 +25,13 @@ services:
 
   auth:
     container_name: !reset null
+    environment:
+      # O GoTrue so carrega modelo de e-mail por HTTP. Sem isto o link de
+      # confirmacao/recuperacao sai do modelo PADRAO do Supabase e o app o
+      # recusa. SUPABASE_PUBLIC_URL e o dominio do CRM (o instalador grava no
+      # .env do Supabase); o Caddy manda /email-templates/ ao app.
+      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: ${SUPABASE_PUBLIC_URL}/email-templates/confirmation
+      GOTRUE_MAILER_TEMPLATES_RECOVERY: ${SUPABASE_PUBLIC_URL}/email-templates/recovery
 
   rest:
     container_name: !reset null
