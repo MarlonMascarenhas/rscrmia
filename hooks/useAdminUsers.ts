@@ -18,6 +18,8 @@ export interface AdminUserRow {
   full_name: string | null;
   last_sign_in_at: string | null;
   created_at: string;
+  is_platform_admin: boolean;
+  is_self: boolean;
 }
 
 export interface AdminUsersFilters {

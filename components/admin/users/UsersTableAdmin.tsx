@@ -19,6 +19,7 @@ import {
 import { Users } from "@/lib/ui/icons";
 import type { AdminUserRow } from "@/hooks/useAdminUsers";
 import { useT } from "@/hooks/i18n/useT";
+import { RemoverDaEmpresaButton } from "@/components/admin/users/AcoesDeUsuarioAdmin";
 
 // ---------------------------------------------------------------------------
 // Role badge
@@ -143,7 +144,7 @@ export function UsersTableAdmin({
               <TableHead className="w-[100px]">Role</TableHead>
               <TableHead className="w-[160px]">{t("Último acesso")}</TableHead>
               <TableHead className="w-[100px]">{t("Status")}</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[220px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,12 +178,21 @@ export function UsersTableAdmin({
                   )}
                 </TableCell>
                 <TableCell>
-                  <Link
-                    href={`/admin/users/${row.user_id}`}
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    {t("Ver")}
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/admin/users/${row.user_id}`}
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      {t("Ver")}
+                    </Link>
+                    {!row.revoked_at && !row.is_self && !row.is_platform_admin && (
+                      <RemoverDaEmpresaButton
+                        userId={row.user_id}
+                        organizationId={row.organization_id}
+                        tenantName={row.tenant_name}
+                      />
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -20,6 +20,8 @@ export interface AdminUserDetail {
   last_sign_in_at: string | null;
   created_at: string;
   email_confirmed_at: string | null;
+  is_platform_admin: boolean;
+  is_self: boolean;
   factors: AdminUserFactor[];
 }
 
