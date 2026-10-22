@@ -184,6 +184,9 @@ export const AUDIT_ACTIONS = [
   // O platform admin tira um usuário de UMA empresa (revogação lógica) ou apaga a conta do Auth.
   "admin.user_removed_from_org",
   "admin.user_deleted",
+  // O platform admin exclui uma empresa inteira. Gravada com `organization_id` NULO (a organização
+  // deixou de existir; o id vai no metadata).
+  "admin.tenant_deleted",
   "mcp.tool_called",
   "ai.credential_created",
   "ai.credential_deleted",
