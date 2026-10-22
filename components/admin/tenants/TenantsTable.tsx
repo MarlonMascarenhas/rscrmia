@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
+import { ExcluirEmpresaDialog } from "@/components/admin/tenants/ExcluirEmpresaDialog";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,6 +138,7 @@ export function TenantsTable({
 }: TenantsTableProps) {
   const tagDoIdioma = useTagDeIdioma();
   const t = useT();
+  const [aExcluir, setAExcluir] = useState<AdminTenantRow | null>(null);
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-md border py-16 text-center text-muted-foreground">
@@ -161,7 +164,7 @@ export function TenantsTable({
               <TableHead className="w-[70px] text-right">{t("Users")}</TableHead>
               <TableHead className="w-[90px] text-right">{t("Conversas")}</TableHead>
               <TableHead className="w-[90px]">{t("Criado em")}</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[110px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -191,12 +194,33 @@ export function TenantsTable({
                   >
                     {t("Ver")}
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => setAExcluir(row)}
+                    className="ml-3 text-xs font-medium text-destructive hover:underline"
+                  >
+                    {t("Excluir")}
+                  </button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {aExcluir && (
+        <ExcluirEmpresaDialog
+          open
+          onClose={() => setAExcluir(null)}
+          organizationId={aExcluir.id}
+          slug={aExcluir.slug}
+          displayName={aExcluir.display_name}
+          contagens={{
+            usuarios: extractCount(aExcluir.user_count),
+            conversas: extractCount(aExcluir.conversations_count),
+          }}
+        />
+      )}
 
       {hasNextPage && (
         <div className="flex justify-center">

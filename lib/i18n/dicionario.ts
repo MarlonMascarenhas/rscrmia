@@ -11858,6 +11858,21 @@ export const DICIONARIO: Traducoes = {
   "Digite {valor} para confirmar": { es: "Escribe {valor} para confirmar" },
   "Excluindo...": { es: "Eliminando..." },
   "Apagando...": { es: "Eliminando..." },
+  "Excluir empresa": { es: "Eliminar empresa" },
+  "Excluir empresa?": { es: "¿Eliminar empresa?" },
+  "{empresa} será excluída agora, de forma definitiva. Não dá para desfazer.": { es: "{empresa} será eliminada ahora, de forma definitiva. No se puede deshacer." },
+  "O que é apagado:": { es: "Qué se borra:" },
+  "conversas, mensagens, contatos, leads, agentes, conexões de WhatsApp e mídias.": { es: "conversaciones, mensajes, contactos, leads, agentes, conexiones de WhatsApp y archivos multimedia." },
+  "O que fica:": { es: "Qué se conserva:" },
+  "as contas das pessoas (só perdem o vínculo com a empresa) e a auditoria.": { es: "las cuentas de las personas (solo pierden el vínculo con la empresa) y la auditoría." },
+  "Empresa excluída.": { es: "Empresa eliminada." },
+  "Empresa excluída, mas a limpeza de arquivos ou conexões não terminou.": { es: "Empresa eliminada, pero la limpieza de archivos o conexiones no terminó." },
+  "Esta empresa tem uma assinatura ativa. Cancele a assinatura antes de excluir a empresa.": { es: "Esta empresa tiene una suscripción activa. Cancela la suscripción antes de eliminar la empresa." },
+  "Há um acompanhamento de suporte aberto nesta empresa. Encerre o acompanhamento antes de excluir.": { es: "Hay un acompañamiento de soporte abierto en esta empresa. Termina el acompañamiento antes de eliminar." },
+  "O texto digitado não é igual ao slug da empresa. Nada foi apagado.": { es: "El texto escrito no es igual al slug de la empresa. No se borró nada." },
+  "Esta empresa não existe mais.": { es: "Esta empresa ya no existe." },
+  "Não foi possível excluir agora. Tente de novo.": { es: "No se pudo eliminar ahora. Inténtalo de nuevo." },
+  "Excluir a empresa apaga tudo dela de uma vez. As contas das pessoas continuam.": { es: "Eliminar la empresa borra todo de una vez. Las cuentas de las personas continúan." },
 };
 
 /**

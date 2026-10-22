@@ -54,6 +54,13 @@ export function TenantOverviewClient({ id }: TenantOverviewClientProps) {
           organizationId={organization.id}
           status={organization.status}
           displayName={organization.display_name}
+          slug={organization.slug}
+          contagens={{
+            usuarios: counts.user_count,
+            conversas: counts.conversations_count,
+            mensagens: counts.messages_count,
+            leads: counts.leads_count,
+          }}
         />
       </div>
     </div>
