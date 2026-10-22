@@ -241,6 +241,14 @@ const GATILHO_ESPERADO: Record<string, { condicao: string | null; efeito: string
       "boas-vindas de robô; sem a de dono, o fork de cada self-hoster herda um bot que fala pela " +
       "gente no repositório dele, prometendo um prazo que ninguém lá concordou em cumprir.",
   },
+  "deploy-vps.yml::deploy": {
+    condicao: "github.repository == 'MarlonMascarenhas/rscrmia'",
+    efeito:
+      "Este job faz o deploy automático DO FORK na VPS dele, por SSH, a cada merge na `main`. " +
+      "A condição é deliberada: sem ela o job rodaria no upstream e em fork de fork, tentando " +
+      "entrar por SSH numa VPS que não é deles. Desligá-lo (ou trocar o nome do repositório) faz " +
+      "o merge ficar verde e a VPS do fork parar na versão anterior, sem erro em lugar nenhum.",
+  },
   "relogio.yml::tick": {
     condicao: "vars.RELOGIO_LIGADO == '1' || github.event_name == 'workflow_dispatch'",
     efeito:
