@@ -11842,7 +11842,22 @@ export const DICIONARIO: Traducoes = {
   "Nenhuma senha configurada. Peça ao administrador para definir em Configurações › Atendimento.": { es: "No hay contraseña configurada. Pide al administrador que la defina en Configuración › Atención." },
   "Abrir Configurações › Atendimento": { es: "Abrir Configuración › Atención" },
   "Não consegui excluir agora. Tente de novo.": { es: "No pude eliminar ahora. Inténtalo de nuevo." },
+  "Não foi possível apagar a conta agora. O usuário já foi removido das empresas; tente apagar a conta de novo.": { es: "No se pudo eliminar la cuenta ahora. El usuario ya fue quitado de las empresas; intenta eliminar la cuenta de nuevo." },
+  "Este usuário tem registros que dependem dele. Remova-o das empresas em vez de apagar a conta.": { es: "Este usuario tiene registros que dependen de él. Quítalo de las empresas en lugar de eliminar la cuenta." },
+  "comissões": { es: "comisiones" },
+  "Este usuário é o único admin ativo das empresas abaixo. Promova outra pessoa a admin antes de continuar.": { es: "Este usuario es el único admin activo de las empresas de abajo. Promueve a otra persona a admin antes de continuar." },
+  "Usuário removido da empresa.": { es: "Usuario quitado de la empresa." },
+  "Remover da empresa": { es: "Quitar de la empresa" },
+  "Remover da empresa?": { es: "¿Quitar de la empresa?" },
+  "O usuário perde o acesso a {empresa}. A conta e as outras empresas dele continuam.": { es: "El usuario pierde el acceso a {empresa}. Su cuenta y sus otras empresas continúan." },
+  "Removendo...": { es: "Quitando..." },
+  "Conta apagada.": { es: "Cuenta eliminada." },
+  "Apagar conta": { es: "Eliminar cuenta" },
+  "Apagar esta conta?": { es: "¿Eliminar esta cuenta?" },
+  "O usuário perde o login e sai de todas as empresas. O histórico dele fica, sem o vínculo. Não dá para desfazer.": { es: "El usuario pierde el acceso y sale de todas las empresas. Su historial se conserva, sin el vínculo. No se puede deshacer." },
+  "Digite {valor} para confirmar": { es: "Escribe {valor} para confirmar" },
   "Excluindo...": { es: "Eliminando..." },
+  "Apagando...": { es: "Eliminando..." },
 };
 
 /**

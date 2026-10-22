@@ -4,6 +4,7 @@ import type { Locale } from "date-fns";
 
 import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,10 @@ import {
 import { CaretLeft } from "@/lib/ui/icons";
 import { useAdminUser } from "@/hooks/useAdminUser";
 import { useT } from "@/hooks/i18n/useT";
+import {
+  ApagarContaButton,
+  RemoverDaEmpresaButton,
+} from "@/components/admin/users/AcoesDeUsuarioAdmin";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,6 +86,7 @@ interface UserDetailClientProps {
 export function UserDetailClient({ id }: UserDetailClientProps) {
   const localeDaData = useLocaleDeData();
   const t = useT();
+  const router = useRouter();
   const { data, isLoading, isError } = useAdminUser(id);
 
   if (isLoading) {
@@ -110,6 +116,7 @@ export function UserDetailClient({ id }: UserDetailClientProps) {
 
   const { user, memberships, recent_audit } = data.data;
   const hasMfa = user.factors.some((f) => f.status === "verified");
+  const podeAgir = !user.is_self && !user.is_platform_admin;
 
   return (
     <div className="space-y-6">
@@ -133,6 +140,15 @@ export function UserDetailClient({ id }: UserDetailClientProps) {
           <p className="font-mono text-sm text-muted-foreground">{user.email}</p>
         )}
         <p className="text-xs text-muted-foreground font-mono">{user.id}</p>
+        {podeAgir && (
+          <div className="pt-2">
+            <ApagarContaButton
+              userId={user.id}
+              email={user.email}
+              onApagada={() => router.push("/admin/users")}
+            />
+          </div>
+        )}
       </div>
 
       <Separator />
@@ -196,6 +212,7 @@ export function UserDetailClient({ id }: UserDetailClientProps) {
                   <TableHead className="w-[100px]">Role</TableHead>
                   <TableHead className="w-[140px]">{t("Aceito em")}</TableHead>
                   <TableHead className="w-[100px]">{t("Status")}</TableHead>
+                  <TableHead className="w-[160px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,6 +244,15 @@ export function UserDetailClient({ id }: UserDetailClientProps) {
                         <Badge variant="error">{t("Revogado")}</Badge>
                       ) : (
                         <Badge variant="success">{t("Ativo")}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {podeAgir && !m.revoked_at && (
+                        <RemoverDaEmpresaButton
+                          userId={user.id}
+                          organizationId={m.organization_id}
+                          tenantName={m.tenant_name ?? m.organization_id}
+                        />
                       )}
                     </TableCell>
                   </TableRow>

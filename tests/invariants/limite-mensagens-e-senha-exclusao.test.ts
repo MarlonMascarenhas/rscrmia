@@ -115,3 +115,49 @@ describe("privilégios", () => {
     expect(lastLine(sql(`select has_table_privilege('service_role', '${t}', 'select')`))).toBe("t");
   });
 });
+
+describe("RLS do segredo de exclusão (organization_conversation_delete_secret)", () => {
+  const MEMBRO = "39600000-0000-4000-8000-000000000005";
+  const t = "public.organization_conversation_delete_secret";
+
+  // Mesma simulação de JWT do rls-isolation.test.ts: role de sessão + request.jwt.claims.
+  // `set role` é por sessão do psql: cada chamada de sql() abre a sua, então ninguém vaza.
+  const comoMembro = (comando: string): string => `
+    set role authenticated;
+    select set_config('request.jwt.claims', '{"sub":"${MEMBRO}"}', false);
+    ${comando}
+  `;
+
+  function recusado(comando: string): boolean {
+    try {
+      sql(comoMembro(comando));
+      return false;
+    } catch (e) {
+      return /permission denied/i.test(String((e as { stderr?: unknown; message?: unknown }).stderr ?? "") + String((e as Error).message));
+    }
+  }
+
+  beforeEach(() => {
+    sql(`
+      insert into auth.users (id, email) values ('${MEMBRO}', 'membro-0396@invariant.test')
+        on conflict (id) do nothing;
+      insert into public.user_organizations (user_id, organization_id, role, accepted_at)
+        values ('${MEMBRO}', '${ORG}', 'admin', now())
+        on conflict do nothing;
+      insert into ${t} (organization_id, password_hash)
+        values ('${ORG}', 'hash-sintetico')
+        on conflict (organization_id) do nothing;
+    `);
+  });
+
+  it("nem o admin da própria organização lê, insere, atualiza ou apaga por JWT authenticated", () => {
+    expect(recusado(`select count(*) from ${t}`)).toBe(true);
+    expect(
+      recusado(`insert into ${t} (organization_id, password_hash) values ('${ORG}', 'outro')`),
+    ).toBe(true);
+    expect(recusado(`update ${t} set password_hash = 'x' where organization_id = '${ORG}'`)).toBe(true);
+    expect(recusado(`delete from ${t} where organization_id = '${ORG}'`)).toBe(true);
+    // O segredo segue intacto para o servidor.
+    expect(conta(`select count(*) from ${t} where organization_id='${ORG}' and password_hash='hash-sintetico'`)).toBe(1);
+  });
+});

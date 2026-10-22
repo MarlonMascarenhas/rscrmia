@@ -97,9 +97,20 @@ function makeAdminStub(cfg: Cfg) {
     },
   };
 
+  // platform_admins: nenhum platform admin ativo entre os usuários listados.
+  const paBuilder = {
+    select: () => paBuilder,
+    is: () => paBuilder,
+    in: () => paBuilder,
+    then(resolve: (v: { data: unknown[]; error: null }) => unknown) {
+      return Promise.resolve({ data: [], error: null }).then(resolve);
+    },
+  };
+
   return {
     stub: {
       from: (table: string) => {
+        if (table === "platform_admins") return paBuilder;
         if (table !== "user_organizations") {
           throw new Error(`unexpected table ${table}`);
         }

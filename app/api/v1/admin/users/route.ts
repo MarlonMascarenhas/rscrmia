@@ -134,6 +134,14 @@ export async function GET(req: NextRequest) {
   // Step 2: get unique user IDs
   const userIds = [...new Set((uoRows as unknown as UoRow[]).map((r) => r.user_id))];
 
+  // Quem é platform admin ativo: a tela esconde "Remover/Apagar" desses (a rota é quem garante).
+  const { data: paRows } = await admin
+    .from("platform_admins")
+    .select("user_id")
+    .is("revoked_at", null)
+    .in("user_id", userIds);
+  const platformAdminIds = new Set((paRows ?? []).map((r) => r.user_id));
+
   // Step 3: fetch auth users via the Auth Admin API.
   //
   // Varredura paginada do diretório, NÃO um `getUserById` por vínculo. O
@@ -252,6 +260,8 @@ export async function GET(req: NextRequest) {
     full_name: string | null;
     last_sign_in_at: string | null;
     created_at: string;
+    is_platform_admin: boolean;
+    is_self: boolean;
   };
 
   let joined: JoinedRow[] = (uoRows as unknown as UoRow[]).flatMap((uo) => {
@@ -276,6 +286,8 @@ export async function GET(req: NextRequest) {
           (u.raw_user_meta_data?.full_name as string | undefined) ?? null,
         last_sign_in_at: u.last_sign_in_at,
         created_at: u.created_at,
+        is_platform_admin: platformAdminIds.has(uo.user_id),
+        is_self: uo.user_id === adminCtx.user.id,
       },
     ];
   });
