@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { loadAuthUser } from "@/lib/auth/server";
 import { requireRole } from "@/lib/auth/require-role";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getWahaClient } from "@/lib/waha/client";
+import { convergirGruposDoCanal, lerCanalParaGrupos } from "@/lib/channels/grupos";
 import { audit } from "@/lib/audit";
 import { fail } from "@/lib/api/wrappers";
 import { PATCH } from "./route";
@@ -11,33 +11,30 @@ import { PATCH } from "./route";
 vi.mock("@/lib/auth/server", () => ({ loadAuthUser: vi.fn() }));
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
-vi.mock("@/lib/waha/client", () => ({ getWahaClient: vi.fn() }));
+vi.mock("@/lib/channels/grupos", () => ({ lerCanalParaGrupos: vi.fn(), convergirGruposDoCanal: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn() }));
 
 const org = "11111111-1111-4111-8111-111111111111";
 const canal = "22222222-2222-4222-8222-222222222222";
-const filters: Record<string, unknown> = {};
-const row = { id: canal, organization_id: org, archived_at: null, waha_session_name: "org_abcdef01_" + canal.replaceAll("-", "") };
+const sessionRef = "sessao-do-canal";
 const update = vi.fn();
 const context = (id = canal) => ({ params: Promise.resolve({ id }) });
 const req = (body: unknown = {}) => new NextRequest("http://localhost/api/v1/channel-sessions/" + canal + "/grupos", { method: "PATCH", body: JSON.stringify(body) });
-const convergirConfigDaSessao = vi.fn().mockResolvedValue("aplicada");
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(loadAuthUser).mockResolvedValue(null);
-  for (const k of Object.keys(filters)) delete filters[k];
   vi.mocked(requireRole).mockResolvedValue({ ok: true, user: { id: org }, org: { orgId: org, role: "admin" } } as Awaited<ReturnType<typeof requireRole>>);
   const query = {
     select: () => query,
     update: (patch: Record<string, unknown>) => { update(patch); return query; },
-    eq: (k: string, v: unknown) => { filters[k] = v; return query; },
-    is: (k: string, v: unknown) => { filters[k] = v; return query; },
-    maybeSingle: async () => ({ data: Object.entries(filters).every(([k, v]) => (row as Record<string, unknown>)[k] === v) ? row : null, error: null }),
+    eq: () => query,
+    is: () => query,
     then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
   };
   vi.mocked(createAdminClient).mockReturnValue({ from: () => query } as unknown as ReturnType<typeof createAdminClient>);
-  vi.mocked(getWahaClient).mockReturnValue({ convergirConfigDaSessao } as unknown as ReturnType<typeof getWahaClient>);
+  vi.mocked(lerCanalParaGrupos).mockResolvedValue({ situacao: "ok", sessionRef });
+  vi.mocked(convergirGruposDoCanal).mockResolvedValue("aplicada");
 });
 
 describe("visibilidade de grupos por conexão", () => {
@@ -67,39 +64,34 @@ describe("visibilidade de grupos por conexão", () => {
   });
 
   it("404 quando o canal não existe ou não é da organização", async () => {
+    vi.mocked(lerCanalParaGrupos).mockResolvedValue({ situacao: "nao_encontrado" });
     expect((await PATCH(req({ mostrar_grupos: true }), context("33333333-3333-4333-8333-333333333333"))).status).toBe(404);
   });
 
-  it("422 quando o canal não tem sessão do WAHA (canal oficial)", async () => {
-    const semSessao = { ...row, waha_session_name: null };
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: () => ({
-        select: () => ({ eq: () => ({ eq: () => ({ is: () => ({ maybeSingle: async () => ({ data: semSessao, error: null }) }) }) }) }),
-      }),
-    } as unknown as ReturnType<typeof createAdminClient>);
+  it("422 quando o canal não tem sessão por QR (canal oficial)", async () => {
+    vi.mocked(lerCanalParaGrupos).mockResolvedValue({ situacao: "sem_sessao" });
     const response = await PATCH(req({ mostrar_grupos: true }), context());
     expect(response.status).toBe(422);
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("sucesso: grava a coluna, converge o WAHA e audita", async () => {
+  it("sucesso: grava a coluna, converge o transporte e audita", async () => {
     const response = await PATCH(req({ mostrar_grupos: true }), context());
     expect(response.status).toBe(200);
-    expect((await response.json()).data).toEqual({ mostrar_grupos: true, waha: "aplicada" });
+    expect((await response.json()).data).toEqual({ mostrar_grupos: true, aplicacao: "aplicada" });
     expect(update).toHaveBeenCalledWith({ mostrar_grupos: true });
-    expect(convergirConfigDaSessao).toHaveBeenCalledWith(row.waha_session_name, { mostrarGrupos: true });
+    expect(convergirGruposDoCanal).toHaveBeenCalledWith(sessionRef, true);
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({
       action: "channel.groups_visibility_updated",
-      metadata: { mostrar_grupos: true, waha: "aplicada" },
+      metadata: { mostrar_grupos: true, aplicacao: "aplicada" },
     }));
   });
 
-  it("WAHA indisponível: ainda 200, com waha: nao_aplicada", async () => {
-    vi.mocked(getWahaClient).mockReturnValue(null);
+  it("transporte indisponível: ainda 200, com aplicacao: nao_aplicada", async () => {
+    vi.mocked(convergirGruposDoCanal).mockResolvedValue("nao_aplicada");
     const response = await PATCH(req({ mostrar_grupos: false }), context());
     expect(response.status).toBe(200);
-    expect((await response.json()).data).toEqual({ mostrar_grupos: false, waha: "nao_aplicada" });
-    expect(convergirConfigDaSessao).not.toHaveBeenCalled();
-    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ metadata: { mostrar_grupos: false, waha: "nao_aplicada" } }));
+    expect((await response.json()).data).toEqual({ mostrar_grupos: false, aplicacao: "nao_aplicada" });
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ metadata: { mostrar_grupos: false, aplicacao: "nao_aplicada" } }));
   });
 });

@@ -2,7 +2,7 @@
  * QUEM FALOU, dentro de um grupo do WhatsApp.
  *
  * A ingestão de mensagem de grupo grava `messages.metadata.autor = { chat_id,
- * telefone, nome }` (`autorDaMensagemDeGrupo`, `lib/waha/grupo.ts`) — numa
+ * telefone, nome }` (`autorDaMensagemDeGrupo`, o módulo de grupo do transporte) — numa
  * conversa 1:1 esse campo não existe, e não precisa existir: lá quem fala é
  * sempre o mesmo contato da conversa, e o balão já não pergunta.
  *

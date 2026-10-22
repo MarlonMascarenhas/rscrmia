@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { apiClient } from "@/lib/api/client";
 import { useT } from "@/hooks/i18n/useT";
 
-type GrupoResposta = { mostrar_grupos: boolean; waha: "ja_convergida" | "aplicada" | "nao_aplicada" };
+type GrupoResposta = { mostrar_grupos: boolean; aplicacao: "ja_convergida" | "aplicada" | "nao_aplicada" };
 
 /**
  * Chave por número (por QR) para ligar/desligar se as mensagens de grupo
@@ -39,7 +39,7 @@ export function ChannelGroupsToggle({
       );
       setChecked(res.data.mostrar_grupos);
       void qc.invalidateQueries({ queryKey: ["channel-sessions"] });
-      if (res.data.waha === "nao_aplicada") {
+      if (res.data.aplicacao === "nao_aplicada") {
         toast.warning(
           t(
             "Salvo. O WhatsApp não confirmou a mudança — use Reconectar neste número para aplicar.",
