@@ -28,15 +28,16 @@ if (!container) {
 const ORG_1 = "eeeeeeee-0000-4000-8000-000000000001";
 const ORG_2 = "eeeeeeee-0000-4000-8000-000000000002";
 const ORG_3 = "eeeeeeee-0000-4000-8000-000000000003";
+const ORG_4 = "eeeeeeee-0000-4000-8000-000000000004"; // só o par da corrida
 const U_ADMIN1 = "eeeeeeee-1111-4000-8000-000000000001"; // admin da ORG_1 e da ORG_2
-const U_ADMIN2 = "eeeeeeee-1111-4000-8000-000000000002"; // admin da ORG_1
+const U_ADMIN2 = "eeeeeeee-1111-4000-8000-000000000002"; // admin da ORG_1 e da ORG_2 (segundo admin da ORG_2)
 const U_AGENTE = "eeeeeeee-1111-4000-8000-000000000003"; // agente da ORG_1
 const U_SOLO = "eeeeeeee-1111-4000-8000-000000000004"; // único admin da ORG_3
 const U_PLAT = "eeeeeeee-1111-4000-8000-000000000005"; // platform admin ativo
 const U_OBRIG = "eeeeeeee-1111-4000-8000-000000000006"; // tem registro NOT NULL
 const U_ANULA = "eeeeeeee-1111-4000-8000-000000000007"; // tem registro anulável + agente ORG_1
-const U_RACE1 = "eeeeeeee-1111-4000-8000-000000000008"; // admin da ORG_2 (par da corrida)
-const U_RACE2 = "eeeeeeee-1111-4000-8000-000000000009"; // admin da ORG_2 (par da corrida)
+const U_RACE1 = "eeeeeeee-1111-4000-8000-000000000008"; // admin da ORG_4 (par da corrida)
+const U_RACE2 = "eeeeeeee-1111-4000-8000-000000000009"; // admin da ORG_4 (par da corrida)
 
 const U_TODOS = [U_ADMIN1, U_ADMIN2, U_AGENTE, U_SOLO, U_PLAT, U_OBRIG, U_ANULA, U_RACE1, U_RACE2];
 
@@ -61,19 +62,21 @@ beforeAll(() => {
     insert into public.organizations (id, slug, legal_name, display_name) values
       ('${ORG_1}', 'adm-del-1', 'Adm Del 1', 'Empresa Um'),
       ('${ORG_2}', 'adm-del-2', 'Adm Del 2', 'Empresa Dois'),
-      ('${ORG_3}', 'adm-del-3', 'Adm Del 3', 'Empresa Tres')
+      ('${ORG_3}', 'adm-del-3', 'Adm Del 3', 'Empresa Tres'),
+      ('${ORG_4}', 'adm-del-4', 'Adm Del 4', 'Empresa Quatro')
       on conflict (id) do nothing;
     insert into public.user_organizations (user_id, organization_id, role, accepted_at) values
       ('${U_ADMIN1}', '${ORG_1}', 'admin', now()),
       ('${U_ADMIN1}', '${ORG_2}', 'admin', now()),
       ('${U_ADMIN2}', '${ORG_1}', 'admin', now()),
+      ('${U_ADMIN2}', '${ORG_2}', 'admin', now()),
       ('${U_AGENTE}', '${ORG_1}', 'agent', now()),
       ('${U_SOLO}', '${ORG_3}', 'admin', now()),
       ('${U_PLAT}', '${ORG_3}', 'agent', now()),
       ('${U_OBRIG}', '${ORG_1}', 'agent', now()),
       ('${U_ANULA}', '${ORG_1}', 'agent', now()),
-      ('${U_RACE1}', '${ORG_2}', 'admin', now()),
-      ('${U_RACE2}', '${ORG_2}', 'admin', now());
+      ('${U_RACE1}', '${ORG_4}', 'admin', now()),
+      ('${U_RACE2}', '${ORG_4}', 'admin', now());
     insert into public.platform_admins (user_id, granted_by, reason)
       values ('${U_PLAT}', '${U_ADMIN1}', 'invariante 0398');
     -- Tabela do teste: uma FK NOT NULL e uma anulável, as duas sem cascade para auth.users.
@@ -137,16 +140,16 @@ describe("0398 — fn_admin_revogar_vinculo", () => {
     const psql = (script: string) =>
       run("docker", ["exec", "-i", container as string, "psql", "-U", "postgres", "-d", "postgres", "-tA", "-c", script]);
     const s1 = psql(
-      `begin; select public.fn_admin_revogar_vinculo('${U_RACE1}', '${ORG_2}')::text; select pg_sleep(2); commit;`,
+      `begin; select public.fn_admin_revogar_vinculo('${U_RACE1}', '${ORG_4}')::text; select pg_sleep(2); commit;`,
     );
     await new Promise((r) => setTimeout(r, 700));
-    const s2 = psql(`select public.fn_admin_revogar_vinculo('${U_RACE2}', '${ORG_2}')::text`);
+    const s2 = psql(`select public.fn_admin_revogar_vinculo('${U_RACE2}', '${ORG_4}')::text`);
     const [o1, o2] = await Promise.all([s1, s2]);
     const saida = o1.stdout + o2.stdout;
     expect(saida.match(/"codigo": "revogado"/g)).toHaveLength(1);
     expect(saida.match(/"codigo": "ultimo_admin"/g)).toHaveLength(1);
     const ativos = sql(
-      `select count(*) from public.user_organizations where organization_id='${ORG_2}' and role='admin' and revoked_at is null and user_id in ('${U_RACE1}','${U_RACE2}')`,
+      `select count(*) from public.user_organizations where organization_id='${ORG_4}' and role='admin' and revoked_at is null and user_id in ('${U_RACE1}','${U_RACE2}')`,
     );
     expect(ativos).toBe("1");
   });

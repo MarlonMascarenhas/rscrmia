@@ -97,6 +97,12 @@ const PROVA_PROPRIA: readonly Excecao[] = [
       "É o mapa 'sessão de pagamento → organização', escrito só pelo service_role.",
   },
   {
+    tabela: "organization_conversation_delete_secret",
+    razao:
+      "tests/invariants/limite-mensagens-e-senha-exclusao.test.ts — segredo exclusivo do servidor: o admin da PRÓPRIA organização, por JWT " +
+      "authenticated, tem select, insert, update e delete recusados (permission denied) e o hash segue intacto; sem grant para anon/authenticated.",
+  },
+  {
     tabela: "cobranca_eventos",
     razao:
       "tests/invariants/planos-isolamento.test.ts — recibo do webhook: sem privilégio para anon/authenticated/PUBLIC, " +
