@@ -46,8 +46,18 @@ describe("cadastro quando o provedor já abriu a sessão", () => {
     signUp.mockReset();
   });
 
-  it("⭐ sessão já aberta: leva à saída em vez de mandar abrir o e-mail", async () => {
-    signUp.mockResolvedValue({ ok: true, sessao_ativa: true });
+  it("⭐ sessão aberta e empresa criada: vai direto ao onboarding", async () => {
+    signUp.mockResolvedValue({ ok: true, sessao_ativa: true, empresa_criada: true });
+    render(<SignupForm />);
+    await preencherEEnviar();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/onboarding/welcome"));
+    // A instrução impossível não pode sobrar na tela junto do desvio.
+    expect(screen.queryByText(/Enviamos um link de confirmação/i)).toBeNull();
+  });
+
+  it("⭐ sessão aberta mas a empresa NÃO nasceu: /get-started é a saída de recuperação", async () => {
+    signUp.mockResolvedValue({ ok: true, sessao_ativa: true, empresa_criada: false });
     render(<SignupForm />);
     await preencherEEnviar();
 
@@ -61,7 +71,7 @@ describe("cadastro quando o provedor já abriu a sessão", () => {
     // `decidirConviteDoSignup` existe para evitar. Um desvio que mandasse todo
     // mundo para `/get-started` ficaria verde no caso acima e recriaria esse
     // erro aqui.
-    signUp.mockResolvedValue({ ok: true, sessao_ativa: true });
+    signUp.mockResolvedValue({ ok: true, sessao_ativa: true, empresa_criada: false });
     render(<SignupForm convite={{ token: "tok-123", email: "convidado@plata.test" }} />);
     await preencherEEnviar(false);
 
@@ -73,7 +83,7 @@ describe("cadastro quando o provedor já abriu a sessão", () => {
   it("CONTROLE — confirmação LIGADA: a tela do e-mail continua aparecendo", async () => {
     // Sem este caso, "sempre redireciona" ficaria verde e tiraria da tela a
     // única instrução correta para quem de fato precisa confirmar o e-mail.
-    signUp.mockResolvedValue({ ok: true, sessao_ativa: false });
+    signUp.mockResolvedValue({ ok: true, sessao_ativa: false, empresa_criada: false });
     render(<SignupForm />);
     await preencherEEnviar();
 

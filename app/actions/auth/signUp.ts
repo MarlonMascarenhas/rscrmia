@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/schemas";
 import { verifyInviteToken } from "@/lib/auth/invite-token";
 import { modoDeCadastro } from "@/lib/auth/politica-de-cadastro";
+import { ensureTenantForUser } from "@/lib/auth/provision";
 import { audit, hashEmail } from "@/lib/audit";
 import { authRateLimited, AUTH_LIMITS } from "@/lib/auth/rate-limit";
 import { env } from "@/lib/env";
@@ -34,6 +35,13 @@ export type SignUpResult =
        * Achado de @KIRAzinx566, com um cliente real travado nessa tela.
        */
       sessao_ativa: boolean;
+      /**
+       * A empresa JÁ nasceu neste cadastro (sessão aberta + instalação `aberto`
+       * + sem convite). A tela segue direto para o onboarding. `false` com
+       * `sessao_ativa` verdadeiro = não nasceu (política, convite ou falha) e a
+       * saída é `/get-started`, que resolve conforme a política.
+       */
+      empresa_criada: boolean;
     }
   | {
       ok: false;
@@ -137,6 +145,7 @@ export async function signUp(
     return { ok: false, error: "somente_convite" };
   }
 
+  const modo = convite === null ? await modoDeCadastro() : null;
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -239,5 +248,35 @@ export async function signUp(
   // `data.session` é o único sinal confiável de que o provedor não vai mandar
   // e-mail nenhum: ele vem preenchido exatamente quando a confirmação está
   // desligada (ou já resolvida) e o GoTrue devolveu tokens junto do usuário.
-  return { ok: true, sessao_ativa: data.session !== null };
+  const sessaoAtiva = data.session !== null;
+
+  // Sessão aberta + cadastro `aberto` + sem convite: a empresa nasce AGORA, no
+  // servidor, com o nome digitado. Quem se cadastra pelo formulário nunca fica
+  // logado sem empresa. `com_aprovacao` e convite seguem o caminho deles. Se
+  // provisionar falhar, `/get-started` é a saída de recuperação.
+  let empresaCriada = false;
+  if (sessaoAtiva && modo === "aberto" && data.user) {
+    try {
+      const provisioned = await ensureTenantForUser(
+        {
+          id: data.user.id,
+          email: data.user.email,
+          user_metadata: { org_name: (parsed.data as SignupInput).org_name },
+        },
+        { source: "signup" },
+      );
+      empresaCriada = Boolean(provisioned.organizationId);
+    } catch (e) {
+      await audit({
+        action: "auth.signup_provision_recovery_failed",
+        actorUserId: data.user.id,
+        metadata: { reason: e instanceof Error ? e.message : String(e) },
+        requestId,
+        ip,
+        userAgent,
+      });
+    }
+  }
+
+  return { ok: true, sessao_ativa: sessaoAtiva, empresa_criada: empresaCriada };
 }

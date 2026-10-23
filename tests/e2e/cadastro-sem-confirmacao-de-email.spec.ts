@@ -105,21 +105,16 @@ test("⭐ o cadastro não manda esperar um e-mail que não vai chegar", async ({
   await page.locator("#password_confirm").fill(SENHA);
   await page.getByRole("button", { name: /criar conta/i }).click();
 
-  // A saída, e não a sala de espera.
-  await expect(page).toHaveURL(/\/get-started/, { timeout: 30_000 });
+  // A empresa nasce NO cadastro (instalação aberta) e a pessoa vai direto ao
+  // onboarding — sem sala de espera e sem segundo formulário.
+  await expect(page).toHaveURL(/\/onboarding\/welcome/, { timeout: 40_000 });
   await expect(
     page.getByText(/Enviamos um link de confirmação/i),
     "a instrução impossível continuou na tela",
   ).toHaveCount(0);
 
-  // O nome que ela digitou no cadastro chega preenchido — não se pede duas
-  // vezes o dado que o sistema já tem.
-  await expect(page.getByLabel(/Nome da empresa/i)).toHaveValue(NOME_DA_EMPRESA);
-
-  // E a jornada CONCLUI: chegar à tela não é o conserto, sair do beco é.
+  // E a empresa existe DE VERDADE no banco, com o nome digitado.
   const idUsuario = await idDoUsuario(email);
-  await page.getByRole("button", { name: /Continuar para o onboarding/i }).click();
-  await expect(page).toHaveURL(/\/onboarding\/welcome/, { timeout: 40_000 });
 
   const { data: vinculo } = await svc
     .from("user_organizations")
