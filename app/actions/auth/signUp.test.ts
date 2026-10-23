@@ -29,6 +29,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { modoDeCadastro } from "@/lib/auth/politica-de-cadastro";
 import { audit } from "@/lib/audit";
+import { ensureTenantForUser } from "@/lib/auth/provision";
 
 vi.mock("next/headers", () => ({ headers: vi.fn() }));
 // Mockada aqui em vez de deixar bater no banco: a política é lida em TODO
@@ -37,6 +38,7 @@ vi.mock("@/lib/auth/politica-de-cadastro", () => ({
   modoDeCadastro: vi.fn(async () => "aberto"),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/auth/provision", () => ({ ensureTenantForUser: vi.fn() }));
 vi.mock("@/lib/audit", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   audit: vi.fn(async () => undefined),
@@ -57,6 +59,8 @@ describe("signUp — a tela precisa saber se a sessão já veio aberta", () => {
   beforeEach(() => {
     vi.resetModules();
     signUpDoProvedor.mockReset();
+    vi.mocked(ensureTenantForUser).mockReset();
+    vi.mocked(ensureTenantForUser).mockResolvedValue({ provisioned: true, organizationId: "org-1" });
     vi.mocked(headers).mockResolvedValue({
       // IP diferente a cada caso, pelo mesmo motivo do e-mail.
       get: (k: string) => (k === "x-forwarded-for" ? `198.51.100.${n % 250}` : null),
@@ -77,7 +81,54 @@ describe("signUp — a tela precisa saber se a sessão já veio aberta", () => {
     const { signUp } = await import("./signUp");
     const res = await signUp(entrada());
 
-    expect(res).toEqual({ ok: true, sessao_ativa: true });
+    expect(res).toEqual({ ok: true, sessao_ativa: true, empresa_criada: true });
+    // A empresa nasce com o nome digitado, pelo mesmo caminho do confirm.
+    expect(ensureTenantForUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "u-1",
+        user_metadata: { org_name: "Plata Iphones" },
+      }),
+      { source: "signup" },
+    );
+  });
+
+  it("sessão aberta mas a provisão FALHA: segue ok sem empresa (cai em /get-started)", async () => {
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: { id: "u-9" }, session: { access_token: "t", refresh_token: "r" } },
+      error: null,
+    });
+    vi.mocked(ensureTenantForUser).mockRejectedValue(new Error("db fora"));
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(entrada());
+
+    expect(res).toEqual({ ok: true, sessao_ativa: true, empresa_criada: false });
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "auth.signup_provision_recovery_failed" }),
+    );
+  });
+
+  it("com_aprovacao: sessão aberta NÃO provisiona (o pedido é do get-started)", async () => {
+    vi.mocked(modoDeCadastro).mockResolvedValue("com_aprovacao");
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: { id: "u-8" }, session: { access_token: "t", refresh_token: "r" } },
+      error: null,
+    });
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(entrada());
+
+    expect(res).toEqual({ ok: true, sessao_ativa: true, empresa_criada: false });
+    expect(ensureTenantForUser).not.toHaveBeenCalled();
+  });
+
+  it("sem sessão (confirmação por e-mail): não provisiona no cadastro", async () => {
+    signUpDoProvedor.mockResolvedValue({ data: { user: { id: "u-7" }, session: null }, error: null });
+
+    const { signUp } = await import("./signUp");
+    await signUp(entrada());
+
+    expect(ensureTenantForUser).not.toHaveBeenCalled();
   });
 
   it("CONTROLE — confirmação LIGADA: sem sessão, a tela do e-mail continua certa", async () => {
@@ -91,7 +142,7 @@ describe("signUp — a tela precisa saber se a sessão já veio aberta", () => {
     const { signUp } = await import("./signUp");
     const res = await signUp(entrada());
 
-    expect(res).toEqual({ ok: true, sessao_ativa: false });
+    expect(res).toEqual({ ok: true, sessao_ativa: false, empresa_criada: false });
   });
 
   it("CONTROLE — o provedor recusar continua sendo erro, não sessão", async () => {
@@ -170,8 +221,40 @@ describe("signUp — instalação que só aceita convidados", () => {
       token,
     );
 
-    expect(res).toEqual({ ok: true, sessao_ativa: false });
+    expect(res).toEqual({ ok: true, sessao_ativa: false, empresa_criada: false });
     expect(signUpDoProvedor).toHaveBeenCalled();
+  });
+
+  it("CONTROLE — convite com sessão aberta NÃO provisiona empresa própria", async () => {
+    vi.mocked(modoDeCadastro).mockResolvedValue("aberto");
+    vi.mocked(ensureTenantForUser).mockReset();
+    const { signInviteToken, INVITE_TTL_SECONDS } = await import("@/lib/auth/invite-token");
+    const dados = entrada();
+    const token = signInviteToken({
+      invite_id: "00000000-0000-4000-8000-000000000004",
+      email: dados.email,
+      organization_id: "00000000-0000-4000-8000-000000000001",
+      role: "agent",
+      exp: Math.floor(Date.now() / 1000) + INVITE_TTL_SECONDS,
+    });
+    signUpDoProvedor.mockResolvedValue({
+      data: { user: { id: "u-4" }, session: { access_token: "t", refresh_token: "r" } },
+      error: null,
+    });
+
+    const { signUp } = await import("./signUp");
+    const res = await signUp(
+      {
+        full_name: "Convidada da Silva",
+        email: dados.email,
+        password: dados.password,
+        password_confirm: dados.password_confirm,
+      },
+      token,
+    );
+
+    expect(res).toEqual({ ok: true, sessao_ativa: true, empresa_criada: false });
+    expect(ensureTenantForUser).not.toHaveBeenCalled();
   });
 });
 

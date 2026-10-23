@@ -5551,6 +5551,9 @@ export const DICIONARIO: Traducoes = {
     es: "Campos definidos en el embudo predeterminado de la organización.",
   },
   "Configure sua organização": { es: "Configura tu organización" },
+  "Não foi possível criar a empresa agora. Confira o nome abaixo e tente de novo.": {
+    es: "No fue posible crear la empresa ahora. Revisa el nombre de abajo e inténtalo de nuevo.",
+  },
   "Sua conta foi confirmada, mas a organização inicial ainda não foi criada. Informe o nome da sua empresa para concluir o primeiro acesso e abrir o onboarding do CRM.": {
     es: "Tu cuenta ya está confirmada, pero todavía no se creó la organización inicial. Escribe el nombre de tu empresa para completar el primer acceso y abrir la configuración inicial del CRM.",
   },

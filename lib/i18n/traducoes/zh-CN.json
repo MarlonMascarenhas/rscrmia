@@ -2918,6 +2918,7 @@
   "Campos personalizados": "自定义字段",
   "Campos definidos no funil padrão da organização.": "在组织默认销售漏斗中定义的字段。",
   "Configure sua organização": "配置您的组织",
+  "Não foi possível criar a empresa agora. Confira o nome abaixo e tente de novo.": "目前无法创建公司。请检查下方的名称后重试。",
   "Sua conta foi confirmada, mas a organização inicial ainda não foi criada. Informe o nome da sua empresa para concluir o primeiro acesso e abrir o onboarding do CRM.": "您的账户已确认，但初始组织尚未创建。请输入您的公司名称，以完成首次访问并打开 CRM 入门引导。",
   "Se você recebeu um convite, não crie uma organização nova. Use o link do convite ou peça ao administrador para reenviá-lo.": "如果您收到了邀请，请不要创建新组织。请使用邀请链接，或让管理员重新发送。",
   "Preparando seu ambiente…": "正在准备您的环境…",

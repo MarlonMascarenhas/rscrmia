@@ -6,6 +6,11 @@ import { branding } from "@/lib/branding";
 import { RecoverOrganizationForm } from "@/components/auth/RecoverOrganizationForm";
 import { modoDeCadastro } from "@/lib/auth/politica-de-cadastro";
 import { estadoDoPedido } from "@/lib/auth/registration-requests";
+import { ensureTenantForUser } from "@/lib/auth/provision";
+import { decidirConviteDoSignup } from "@/lib/auth/convite-no-signup";
+import { acessoFoiRevogado } from "@/lib/auth/vinculo-revogado";
+import { authRateLimited, AUTH_LIMITS } from "@/lib/auth/rate-limit";
+import { audit } from "@/lib/audit";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 
@@ -40,6 +45,38 @@ export default async function GetStartedPage() {
   } = await supabase.auth.getUser();
   const nomeSugerido = (authUser?.user_metadata?.org_name as string | undefined) ?? undefined;
 
+  // INSTALAÇÃO `aberto`: quem chegou aqui logado, sem empresa, sem convite
+  // pendente e sem vínculo revogado ganha a empresa SOZINHO — sem segundo
+  // formulário. As guardas são as de `recoverOrganization` (revogado, convite,
+  // `so_convite` e o teto `org_recovery`). Falhou ou foi barrado: cai no
+  // formulário abaixo, que é o caminho de recuperação.
+  let erroDeProvisao = false;
+  const modo = await modoDeCadastro();
+  if (authUser && modo === "aberto") {
+    const revogado = await acessoFoiRevogado(authUser.id);
+    const decisao = decidirConviteDoSignup(authUser);
+    if (!revogado && decisao.tipo === "provisionar") {
+      if (!(await authRateLimited("org_recovery", authUser.id, AUTH_LIMITS.org_recovery))) {
+        let criada = false;
+        try {
+          const provisioned = await ensureTenantForUser(
+            { id: authUser.id, email: authUser.email, user_metadata: authUser.user_metadata },
+            { source: "signup" },
+          );
+          criada = Boolean(provisioned.organizationId);
+        } catch (e) {
+          void audit({
+            action: "auth.signup_provision_recovery_failed",
+            actorUserId: authUser.id,
+            metadata: { reason: e instanceof Error ? e.message : String(e) },
+          });
+        }
+        if (criada) redirect("/onboarding/welcome");
+        erroDeProvisao = true;
+      }
+    }
+  }
+
   // Fora da árvore de `app/app/layout.tsx`, como as telas públicas: o idioma
   // vem do próprio usuário, e o formulário precisa do provider para o `useT()`.
   const t = (texto: string) => traduzir(texto, user.idioma);
@@ -47,7 +84,7 @@ export default async function GetStartedPage() {
   // COM APROVAÇÃO (migration 0383): a mesma tela vira o pedido. A tabela só é
   // lida nesse modo — com a chave desligada, esta tela faz exatamente o que
   // fazia antes.
-  const comAprovacao = (await modoDeCadastro()) === "com_aprovacao";
+  const comAprovacao = modo === "com_aprovacao";
   const pedido = comAprovacao ? await estadoDoPedido(user.id) : null;
   const aguardando = pedido === "pending" || pedido === "rejected";
 
@@ -84,6 +121,11 @@ export default async function GetStartedPage() {
                       )}
             </p>
           </div>
+          {erroDeProvisao && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("Não foi possível criar a empresa agora. Confira o nome abaixo e tente de novo.")}
+            </p>
+          )}
           {!aguardando && (
             <RecoverOrganizationForm nomeSugerido={nomeSugerido} comAprovacao={comAprovacao} />
           )}

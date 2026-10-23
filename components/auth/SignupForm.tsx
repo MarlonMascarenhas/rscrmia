@@ -105,7 +105,11 @@ export function SignupForm({ convite }: { convite?: ConviteDoSignup }) {
          */
         if (res.sessao_ativa) {
           router.replace(
-            convite ? `/team/accept-invite/${convite.token}` : "/get-started",
+            convite
+              ? `/team/accept-invite/${convite.token}`
+              : res.empresa_criada
+                ? "/onboarding/welcome"
+                : "/get-started",
           );
           return;
         }

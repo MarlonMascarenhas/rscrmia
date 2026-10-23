@@ -50,6 +50,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/acesso-revogado");
   }
 
+  // Autenticado, sem NENHUM vínculo ativo e não revogado: ninguém fica preso
+  // sem empresa. `/get-started` resolve conforme a política (cria a empresa em
+  // `aberto`, mostra o pedido, ou explica o convite). Sem laço: `/get-started`
+  // só devolve para cá quando há vínculo. Platform admin (opera cross-tenant) e
+  // sessão de suporte seguem passando sem empresa própria.
+  if (!activeOrg && !user.support && !user.is_platform_admin) {
+    redirect("/get-started");
+  }
+
   /**
    * A cor desta organização, serializada, ou `null` quando ela não tem uma.
    *

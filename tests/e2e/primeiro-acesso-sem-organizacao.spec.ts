@@ -49,12 +49,22 @@ const svc = createClient(
 
 const SENHA = "PrimeiroAcesso!2026#Deskcomm";
 
-/** O usuário do defeito: e-mail confirmado, nenhuma organização. */
+/**
+ * O usuário do defeito: e-mail confirmado, nenhuma organização, cadastro SEM
+ * convite. Numa instalação `aberto`, a empresa nasce sozinha no primeiro acesso.
+ */
 const emailOrfao = `orfao-${randomUUID().slice(0, 8)}@qa.local`;
+/**
+ * Sem organização MAS com convite pendente no `user_metadata` (aqui, um token
+ * que não verifica): nunca ganha empresa própria — fica na tela de
+ * `/get-started`, a saída de quem não pode ser provisionado sozinho.
+ */
+const emailComConvite = `convite-${randomUUID().slice(0, 8)}@qa.local`;
 /** O CONTROLE: mesma jornada, mas com organização. */
 const emailComOrg = `comorg-${randomUUID().slice(0, 8)}@qa.local`;
 
 let idOrfao = "";
+let idComConvite = "";
 let idComOrg = "";
 let orgId = "";
 /** A organização que a recuperação CRIA — limpada no fim. */
@@ -65,9 +75,20 @@ test.beforeAll(async () => {
     email: emailOrfao,
     password: SENHA,
     email_confirm: true,
+    // O nome que o cadastro grava: é com ele que a empresa nasce.
+    user_metadata: { org_name: "Clínica Recuperada E2E" },
   });
   if (e1 || !orfao.user) throw e1 ?? new Error("sem usuário órfão");
   idOrfao = orfao.user.id;
+
+  const { data: convidado, error: e0 } = await svc.auth.admin.createUser({
+    email: emailComConvite,
+    password: SENHA,
+    email_confirm: true,
+    user_metadata: { invite_token: "convite-que-nao-verifica" },
+  });
+  if (e0 || !convidado.user) throw e0 ?? new Error("sem usuário com convite");
+  idComConvite = convidado.user.id;
   // De propósito: NENHUMA linha em `user_organizations`. É o estado que o
   // provisionamento falho deixa no disco.
 
@@ -109,7 +130,7 @@ test.afterAll(async () => {
     await svc.from("crm_pipelines").delete().eq("organization_id", id);
     await svc.from("organizations").delete().eq("id", id);
   }
-  for (const id of [idOrfao, idComOrg].filter(Boolean)) {
+  for (const id of [idOrfao, idComConvite, idComOrg].filter(Boolean)) {
     await svc.auth.admin.deleteUser(id);
   }
 });
@@ -122,11 +143,11 @@ async function entrar(page: Page, email: string): Promise<void> {
   await page.waitForURL(/\/(app|onboarding|get-started)/, { timeout: 30_000 });
 }
 
-test.describe("conta confirmada e sem organização", () => {
+test.describe("conta confirmada, sem organização e com convite pendente", () => {
   test("⭐ a porta do onboarding leva à saída, e não de volta ao login", async ({ page }) => {
     // ESTA é a porta do laço: antes, `/onboarding` mandava para `/login`, que
     // mandava para `/app/inbox`, que mandava aceitar um convite que não existe.
-    await entrar(page, emailOrfao);
+    await entrar(page, emailComConvite);
     await page.goto("/onboarding");
     await expect(page).toHaveURL(/\/get-started/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: /Configure sua organização/i })).toBeVisible();
@@ -135,31 +156,29 @@ test.describe("conta confirmada e sem organização", () => {
   test("⭐ a porta do welcome (o layout) leva ao mesmo lugar", async ({ page }) => {
     // Porta distinta da anterior: quem redireciona aqui é `layout.tsx`, não
     // `page.tsx`. Um conserto que arrumasse só a página deixaria esta aberta.
-    await entrar(page, emailOrfao);
+    await entrar(page, emailComConvite);
     await page.goto("/onboarding/welcome");
     await expect(page).toHaveURL(/\/get-started/, { timeout: 20_000 });
   });
 
-  test("⭐ o estado vazio do Inbox oferece a porta, e ela funciona", async ({ page }) => {
-    // A frase antiga oferecia duas saídas que não existem para quem instalou o
-    // sistema. O link é a única saída real — e clicá-lo tem de chegar lá.
-    await entrar(page, emailOrfao);
+  test("⭐ abrir o Inbox sem empresa leva à saída, e não ao Perfil", async ({ page }) => {
+    // O layout de `/app` manda quem não tem vínculo para `/get-started`: antes
+    // a pessoa ficava presa numa tela sem menu.
+    await entrar(page, emailComConvite);
     await page.goto("/app/inbox");
-    const porta = page.getByRole("link", { name: /Configurar minha organização/i });
-    await expect(porta).toBeVisible({ timeout: 20_000 });
-    await porta.click();
     await expect(page).toHaveURL(/\/get-started/, { timeout: 20_000 });
   });
+});
 
-  test("⭐ a recuperação CONCLUI: informa o nome e sai para o onboarding", async ({ page }) => {
-    // Chegar à tela não é o conserto — SAIR do beco é. Sem este caso, uma tela
-    // que aparecesse e não fizesse nada passaria como se resolvesse.
+test.describe("conta confirmada, sem organização e SEM convite, em instalação aberta", () => {
+  test("⭐ o login TERMINA com a empresa criada — e não no Perfil sem menu", async ({ page }) => {
+    // O caso que faltava: antes, esta pessoa caía em /app/settings/profile sem
+    // menu e ficava presa. O layout manda para /get-started, que provisiona
+    // sozinho com o nome do cadastro. (Pressupõe a política `aberto`, o padrão.)
     await entrar(page, emailOrfao);
-    await page.goto("/get-started");
-    await page.getByLabel(/Nome da empresa/i).fill("Clínica Recuperada E2E");
-    await page.getByRole("button", { name: /Continuar para o onboarding/i }).click();
 
     await expect(page).toHaveURL(/\/onboarding\/welcome/, { timeout: 40_000 });
+    await expect(page).not.toHaveURL(/settings\/profile/);
 
     // A organização existe DE VERDADE no banco, com o nome digitado — não é só
     // a URL que mudou.
